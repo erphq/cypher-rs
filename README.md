@@ -45,10 +45,10 @@ stops where storage starts.
 
 | Stage | What | Status |
 |---|---|---|
-| Lexer | tokens for openCypher 9 grammar | planned |
-| Parser | concrete syntax tree | planned |
-| AST lowering | symbol table, variable binding | planned |
-| Semantic analysis | type / scope / label / rel-type checks | planned |
+| Lexer | tokens for openCypher 9 grammar | partial (v0.2) |
+| Parser | concrete syntax tree | partial (v0.2: MATCH/OPTIONAL MATCH/WHERE/RETURN/ORDER BY/LIMIT/SKIP, list literals, IN) |
+| AST lowering | symbol table, variable binding | partial (v0.3) |
+| Semantic analysis | scope / label / rel-type checks | partial (v0.3 — type checks deferred) |
 | Logical plan | algebra: scan · expand · filter · project · agg | planned |
 | Plan rewriter | predicate pushdown, projection pruning | planned |
 | Cost model | pluggable trait; default = cardinality-only | planned |
@@ -203,10 +203,11 @@ backend-specific) are not.
 ## ✦ Roadmap
 
 - [x] v0.0 — scaffold, design, scope
-- [ ] v0.1 — lexer + parser; MATCH / RETURN / WHERE / CREATE / MERGE
-- [ ] v0.2 — semantic analyzer, schema-aware validation
-- [ ] v0.3 — logical plan + algebra
-- [ ] v0.4 — predicate pushdown, projection pruning
+- [x] v0.1 — lexer + parser; MATCH / WHERE / RETURN / LIMIT / SKIP, expressions
+- [x] v0.2 — OPTIONAL MATCH · ORDER BY (multi-key, ASC/DESC) · list literals · `IN`. Atomic `kw_*` rules with word-boundary checks for every keyword.
+- [x] v0.3 — semantic analyzer (variable binding · scope check · optional schema-aware label / rel-type validation via `Schema` trait)
+- [ ] v0.4 — logical plan + algebra
+- [ ] v0.5 — predicate pushdown, projection pruning
 - [ ] v0.5 — cost-model trait + default impl
 - [ ] v0.6 — `cypher-rs-sled` integration crate
 - [ ] v1.0 — openCypher TCK ≥ 95%; used in FFS

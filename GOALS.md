@@ -5,10 +5,14 @@ Be the de-facto Rust openCypher front-end. Drop-in for any embedded or
 server-side graph DB project that doesn't want to carry libcypher-parser.
 
 ## v0 success criteria
-- Lexer + parser handle: MATCH, OPTIONAL MATCH, WHERE, RETURN, CREATE,
-  MERGE, SET, DELETE, ORDER BY, LIMIT, SKIP, UNWIND
-- Parses 1k random TCK queries without panicking
-- AST is documented and stable
+- Lexer + parser handle: MATCH ✅, OPTIONAL MATCH ✅, WHERE ✅,
+  RETURN ✅, ORDER BY ✅, LIMIT ✅, SKIP ✅, list literals ✅, IN ✅,
+  CREATE / MERGE / SET / DELETE / UNWIND (pending)
+- Parses 1k random TCK queries without panicking (pending)
+- AST is documented and stable (✅ for v0.2 surface)
+- Semantic analyzer: variable binding ✅, scope check ✅, schema-aware
+  label/rel-type validation via opt-in `Schema` trait ✅ (type checks
+  deferred to v0.4)
 
 ## v1 success criteria
 - openCypher TCK conformance ≥ 95%

@@ -16,7 +16,11 @@
 pub mod ast;
 pub mod error;
 mod parser;
+pub mod sema;
 
 pub use ast::*;
 pub use error::ParseError;
 pub use parser::parse;
+pub use sema::{
+    analyze, analyze_with, AnalysisReport, PermissiveSchema, Schema, SemIssue, SemSeverity,
+};
