@@ -6,6 +6,49 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-05-01
+
+### Added
+- Anonymous rel-binding synthesis. Patterns like `(:User {id: 1})`
+  and `[:KNOWS {since: 2020}]` now synthesize an internal `__node_N`
+  / `__rel_N` binding so their property predicates can lower to a
+  `Filter` instead of being dropped. The lowered shape is
+  `Project > Filter > Scan` (or `Filter > Expand`) with the
+  filter's lhs referencing the synthesized var.
+- Tests covering both synthesized-rel and synthesized-node paths,
+  plus a guard that bare patterns like `(:User)` (no properties) do
+  not introduce a binding.
+
+### Changed
+- `lower_pattern` threads a `Synth` counter through the chain so
+  successive anonymous patterns get distinct fresh names without
+  colliding.
+
+### Fixed
+- Lifts the v0.8 limitation: rel patterns with property maps but
+  no user-given var no longer drop the predicate silently.
+
+## [0.8.0] - 2026-05-01
+
+### Added
+- Map literals as expressions: `{key: value, ...}`. New `Expr::Map`
+  variant; values can be any expression (literals, lists, params,
+  variables, nested maps).
+- Property maps on node and rel patterns:
+  `(u:User {id: $uid})` and `[:KNOWS {since: 2020}]`. New
+  `properties: Vec<(String, Expr)>` field on `NodePattern` and
+  `RelPattern`.
+- Planner desugaring: pattern-property maps lower to AND-chained
+  `Filter` operators of the form `var.key = value`. Empty maps
+  (`{}`) introduce no filter.
+- Sema and optimizer walk `Expr::Map` values for unbound-variable
+  checks and predicate pushdown.
+
+### Known limitations
+- Rel patterns with a property map but no bound var (e.g.
+  `[:KNOWS {since: 2020}]`) drop the predicate because there is
+  nothing to attach the filter to. Fixed in v0.9.
+
 ## [0.7.0] - 2026-05-01
 
 ### Added
