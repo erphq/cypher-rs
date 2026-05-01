@@ -43,6 +43,10 @@ pub struct RelChain {
 pub struct NodePattern {
     pub var: Option<String>,
     pub labels: Vec<String>,
+    /// Property equalities encoded by a `{key: value, ...}` literal
+    /// inside the node pattern. The lowerer turns each entry into a
+    /// `Filter` predicate of the form `var.key = value`.
+    pub properties: Vec<(String, Expr)>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -50,6 +54,9 @@ pub struct RelPattern {
     pub var: Option<String>,
     pub direction: Direction,
     pub types: Vec<String>,
+    /// Same shape as `NodePattern.properties` for relationship
+    /// property equalities.
+    pub properties: Vec<(String, Expr)>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -74,6 +81,7 @@ pub struct ReturnItem {
 pub enum Expr {
     Literal(Literal),
     List(Vec<Expr>),
+    Map(Vec<(String, Expr)>),
     Variable(String),
     Param(String),
     Property {

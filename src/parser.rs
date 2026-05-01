@@ -145,6 +145,7 @@ fn walk_pattern(pair: Pair<Rule>) -> Result<Pattern, ParseError> {
 fn walk_node(pair: Pair<Rule>) -> Result<NodePattern, ParseError> {
     let mut var = None;
     let mut labels = Vec::new();
+    let mut properties = Vec::new();
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::ident => var = Some(inner.as_str().to_string()),
@@ -159,10 +160,17 @@ fn walk_node(pair: Pair<Rule>) -> Result<NodePattern, ParseError> {
                     }
                 }
             }
+            Rule::map_literal => {
+                properties = walk_map_entries(inner)?;
+            }
             _ => {}
         }
     }
-    Ok(NodePattern { var, labels })
+    Ok(NodePattern {
+        var,
+        labels,
+        properties,
+    })
 }
 
 fn walk_rel(pair: Pair<Rule>) -> Result<RelPattern, ParseError> {
@@ -176,6 +184,7 @@ fn walk_rel(pair: Pair<Rule>) -> Result<RelPattern, ParseError> {
 
     let mut var = None;
     let mut types = Vec::new();
+    let mut properties = Vec::new();
     for d in inner.into_inner() {
         if d.as_rule() == Rule::rel_detail {
             for di in d.into_inner() {
@@ -188,6 +197,9 @@ fn walk_rel(pair: Pair<Rule>) -> Result<RelPattern, ParseError> {
                             }
                         }
                     }
+                    Rule::map_literal => {
+                        properties = walk_map_entries(di)?;
+                    }
                     _ => {}
                 }
             }
@@ -197,7 +209,29 @@ fn walk_rel(pair: Pair<Rule>) -> Result<RelPattern, ParseError> {
         var,
         direction,
         types,
+        properties,
     })
+}
+
+/// Walk a `map_literal` rule's children and return the (key, value) pairs.
+fn walk_map_entries(pair: Pair<Rule>) -> Result<Vec<(String, Expr)>, ParseError> {
+    let mut out = Vec::new();
+    for entry in pair.into_inner() {
+        if entry.as_rule() != Rule::map_entry {
+            continue;
+        }
+        let mut iter = entry.into_inner();
+        let key_pair = iter
+            .next()
+            .ok_or_else(|| ParseError::Unexpected("map_entry: missing key".into()))?;
+        let val_pair = iter
+            .next()
+            .ok_or_else(|| ParseError::Unexpected("map_entry: missing value".into()))?;
+        let key = key_pair.as_str().to_string();
+        let val = walk_expr(val_pair)?;
+        out.push((key, val));
+    }
+    Ok(out)
 }
 
 // --- expressions ----------------------------------------------------------
@@ -271,6 +305,10 @@ fn walk_expr(pair: Pair<Rule>) -> Result<Expr, ParseError> {
                 items.push(walk_expr(item)?);
             }
             Ok(Expr::List(items))
+        }
+        Rule::map_literal => {
+            let entries = walk_map_entries(pair)?;
+            Ok(Expr::Map(entries))
         }
         r => Err(unexpected("walk_expr", r)),
     }

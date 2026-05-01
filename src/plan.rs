@@ -221,6 +221,12 @@ fn lower_pattern(pattern: &Pattern) -> Plan {
         var: pattern.anchor.var.clone(),
         label: pattern.anchor.labels.first().cloned(),
     };
+    if let Some(filter) = pattern_property_filter(&pattern.anchor.var, &pattern.anchor.properties) {
+        current = Plan::Filter {
+            input: Box::new(current),
+            pred: filter,
+        };
+    }
     let mut head = pattern.anchor.var.clone();
     for chain in &pattern.chain {
         current = Plan::Expand {
@@ -232,9 +238,54 @@ fn lower_pattern(pattern: &Pattern) -> Plan {
             dst: chain.node.var.clone(),
             dst_label: chain.node.labels.first().cloned(),
         };
+        if let Some(filter) = pattern_property_filter(&chain.rel.var, &chain.rel.properties) {
+            current = Plan::Filter {
+                input: Box::new(current),
+                pred: filter,
+            };
+        }
+        if let Some(filter) = pattern_property_filter(&chain.node.var, &chain.node.properties) {
+            current = Plan::Filter {
+                input: Box::new(current),
+                pred: filter,
+            };
+        }
         head = chain.node.var.clone();
     }
     current
+}
+
+/// Desugar a pattern's `{key: value}` block into a single AND-chain
+/// filter predicate of the form `var.key = value AND ...`.
+/// Returns `None` when the pattern is unbound (no var to attach to)
+/// or has no properties.
+fn pattern_property_filter(var: &Option<String>, props: &[(String, Expr)]) -> Option<Expr> {
+    if props.is_empty() {
+        return None;
+    }
+    let var_name = var.as_ref()?;
+    let mut iter = props.iter();
+    let first = iter.next()?;
+    let mut acc = property_eq(var_name, &first.0, &first.1);
+    for (k, v) in iter {
+        acc = Expr::Binary {
+            op: BinOp::And,
+            lhs: Box::new(acc),
+            rhs: Box::new(property_eq(var_name, k, v)),
+        };
+    }
+    Some(acc)
+}
+
+fn property_eq(var: &str, key: &str, value: &Expr) -> Expr {
+    Expr::Binary {
+        op: BinOp::Eq,
+        lhs: Box::new(Expr::Property {
+            base: Box::new(Expr::Variable(var.to_string())),
+            key: key.to_string(),
+        }),
+        rhs: Box::new(value.clone()),
+    }
 }
 
 // --- pretty-printing -------------------------------------------------------

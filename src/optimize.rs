@@ -181,6 +181,11 @@ fn walk_expr(expr: &Expr, out: &mut HashSet<String>) {
                 walk_expr(i, out);
             }
         }
+        Expr::Map(entries) => {
+            for (_k, v) in entries {
+                walk_expr(v, out);
+            }
+        }
         Expr::Literal(_) | Expr::Param(_) => {}
     }
 }

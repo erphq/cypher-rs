@@ -195,6 +195,11 @@ fn check_expr(expr: &Expr, bindings: &HashSet<String>, issues: &mut Vec<SemIssue
                 check_expr(item, bindings, issues);
             }
         }
+        Expr::Map(entries) => {
+            for (_k, v) in entries {
+                check_expr(v, bindings, issues);
+            }
+        }
         Expr::Literal(_) | Expr::Param(_) => {}
     }
 }

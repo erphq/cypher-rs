@@ -68,7 +68,7 @@ pattern_list = { pattern ~ ("," ~ pattern)* }
 pattern      = { node_pattern ~ rel_chain* }
 rel_chain    = { rel_pattern ~ node_pattern }
 
-node_pattern = { "(" ~ ident? ~ labels? ~ ")" }
+node_pattern = { "(" ~ ident? ~ labels? ~ map_literal? ~ ")" }
 labels       = { label+ }
 label        = { ":" ~ ident }
 
@@ -76,7 +76,7 @@ rel_pattern    = { rel_left | rel_right | rel_undirected }
 rel_left       = { "<-" ~ rel_detail? ~ "-" }
 rel_right      = { "-" ~ rel_detail? ~ "->" }
 rel_undirected = { "-" ~ rel_detail? ~ "-" }
-rel_detail     = { "[" ~ ident? ~ rel_types? ~ "]" }
+rel_detail     = { "[" ~ ident? ~ rel_types? ~ map_literal? ~ "]" }
 rel_types      = { ":" ~ ident ~ ("|" ~ ident)* }
 
 // --- return -----------------------------------------------------------
@@ -109,9 +109,11 @@ neg_op       = { "-" ~ unary_expr }
 postfix_expr = { primary_expr ~ prop_access* }
 prop_access  = { "." ~ ident }
 
-primary_expr = _{ literal | list_lit | param | paren_expr | var_ref }
+primary_expr = _{ literal | list_lit | map_literal | param | paren_expr | var_ref }
 paren_expr   = { "(" ~ expr ~ ")" }
 list_lit     = { "[" ~ (expr ~ ("," ~ expr)*)? ~ "]" }
+map_literal  = { "{" ~ (map_entry ~ ("," ~ map_entry)*)? ~ "}" }
+map_entry    = { ident ~ ":" ~ expr }
 var_ref      = { ident }
 
 param = ${ "$" ~ ident }
