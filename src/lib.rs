@@ -16,6 +16,7 @@
 pub mod ast;
 pub mod error;
 mod parser;
+pub mod sema;
 
 pub use ast::*;
 pub use error::ParseError;
