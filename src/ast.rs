@@ -10,8 +10,15 @@ pub enum Clause {
     Match(MatchClause),
     Where(Expr),
     Return(ReturnClause),
+    OrderBy(Vec<OrderItem>),
     Limit(Expr),
     Skip(Expr),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct OrderItem {
+    pub expr: Expr,
+    pub desc: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -66,6 +73,7 @@ pub struct ReturnItem {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     Literal(Literal),
+    List(Vec<Expr>),
     Variable(String),
     Param(String),
     Property {
@@ -107,6 +115,7 @@ pub enum BinOp {
     Mul,
     Div,
     Mod,
+    In,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

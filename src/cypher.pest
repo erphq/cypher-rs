@@ -1,4 +1,5 @@
-// Minimal openCypher subset for cypher-rs v0.
+// Minimal openCypher subset for cypher-rs (v0.1: MATCH/WHERE/RETURN/LIMIT/SKIP;
+// v0.2: OPTIONAL MATCH, ORDER BY, list literals, IN).
 //
 // Whitespace is skipped between non-atomic rules. Atomic rules
 // (those marked `@`) preserve internal whitespace.
@@ -7,13 +8,36 @@ WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
 COMMENT = _{ "//" ~ (!"\n" ~ ANY)* }
 
 // --- keywords ---------------------------------------------------------
+//
+// Every keyword literal in the grammar uses a `kw_*` helper that
+// enforces a word boundary. Without the boundary check, `^"OR"` would
+// gleefully consume the "OR" prefix of `ORDER` and break the parse.
 
-reserved_kw = @{
-    ( ^"MATCH" | ^"WHERE" | ^"RETURN" | ^"AS"
-    | ^"LIMIT" | ^"SKIP"
-    | ^"AND" | ^"OR" | ^"NOT"
-    | ^"TRUE" | ^"FALSE" | ^"NULL" )
-    ~ !(ASCII_ALPHANUMERIC | "_")
+kw_match    = @{ ^"MATCH"    ~ !(ASCII_ALPHANUMERIC | "_") }
+kw_optional = @{ ^"OPTIONAL" ~ !(ASCII_ALPHANUMERIC | "_") }
+kw_where    = @{ ^"WHERE"    ~ !(ASCII_ALPHANUMERIC | "_") }
+kw_return   = @{ ^"RETURN"   ~ !(ASCII_ALPHANUMERIC | "_") }
+kw_as       = @{ ^"AS"       ~ !(ASCII_ALPHANUMERIC | "_") }
+kw_order    = @{ ^"ORDER"    ~ !(ASCII_ALPHANUMERIC | "_") }
+kw_by       = @{ ^"BY"       ~ !(ASCII_ALPHANUMERIC | "_") }
+kw_asc      = @{ ^"ASC"      ~ !(ASCII_ALPHANUMERIC | "_") }
+kw_desc     = @{ ^"DESC"     ~ !(ASCII_ALPHANUMERIC | "_") }
+kw_limit    = @{ ^"LIMIT"    ~ !(ASCII_ALPHANUMERIC | "_") }
+kw_skip     = @{ ^"SKIP"     ~ !(ASCII_ALPHANUMERIC | "_") }
+kw_and      = @{ ^"AND"      ~ !(ASCII_ALPHANUMERIC | "_") }
+kw_or       = @{ ^"OR"       ~ !(ASCII_ALPHANUMERIC | "_") }
+kw_not      = @{ ^"NOT"      ~ !(ASCII_ALPHANUMERIC | "_") }
+kw_in       = @{ ^"IN"       ~ !(ASCII_ALPHANUMERIC | "_") }
+kw_true     = @{ ^"TRUE"     ~ !(ASCII_ALPHANUMERIC | "_") }
+kw_false    = @{ ^"FALSE"    ~ !(ASCII_ALPHANUMERIC | "_") }
+kw_null     = @{ ^"NULL"     ~ !(ASCII_ALPHANUMERIC | "_") }
+
+reserved_kw = _{
+    kw_match | kw_optional | kw_where | kw_return | kw_as
+    | kw_order | kw_by | kw_asc | kw_desc
+    | kw_limit | kw_skip
+    | kw_and | kw_or | kw_not | kw_in
+    | kw_true | kw_false | kw_null
 }
 
 ident = @{
@@ -24,13 +48,19 @@ ident = @{
 
 query = { SOI ~ clause+ ~ EOI }
 
-clause = _{ match_clause | where_clause | return_clause | limit_clause | skip_clause }
+clause = _{ match_clause | where_clause | return_clause | order_by_clause | limit_clause | skip_clause }
 
-match_clause  = { ^"MATCH" ~ pattern_list }
-where_clause  = { ^"WHERE" ~ expr }
-return_clause = { ^"RETURN" ~ return_items }
-limit_clause  = { ^"LIMIT" ~ expr }
-skip_clause   = { ^"SKIP" ~ expr }
+match_clause     = { optional_kw? ~ kw_match ~ pattern_list }
+optional_kw      = { kw_optional }
+where_clause     = { kw_where ~ expr }
+return_clause    = { kw_return ~ return_items }
+order_by_clause  = { kw_order ~ kw_by ~ order_items }
+limit_clause     = { kw_limit ~ expr }
+skip_clause      = { kw_skip ~ expr }
+
+order_items = { order_item ~ ("," ~ order_item)* }
+order_item  = { expr ~ order_dir? }
+order_dir   = { kw_asc | kw_desc }
 
 // --- patterns ---------------------------------------------------------
 
@@ -53,18 +83,21 @@ rel_types      = { ":" ~ ident ~ ("|" ~ ident)* }
 
 return_items = { return_item ~ ("," ~ return_item)* }
 return_item  = { expr ~ alias? }
-alias        = { ^"AS" ~ ident }
+alias        = { kw_as ~ ident }
 
 // --- expressions ------------------------------------------------------
 
 expr     = { or_expr }
-or_expr  = { and_expr ~ (^"OR" ~ and_expr)* }
-and_expr = { not_expr ~ (^"AND" ~ not_expr)* }
+or_expr  = { and_expr ~ (kw_or ~ and_expr)* }
+and_expr = { not_expr ~ (kw_and ~ not_expr)* }
 not_expr = _{ not_op | cmp_expr }
-not_op   = { ^"NOT" ~ not_expr }
+not_op   = { kw_not ~ not_expr }
 
-cmp_expr = { add_expr ~ (cmp_op ~ add_expr)? }
-cmp_op   = { "<>" | "<=" | ">=" | "=" | "<" | ">" }
+cmp_expr     = { add_expr ~ cmp_tail? }
+cmp_tail     = _{ cmp_op_tail | in_op_tail }
+cmp_op_tail  = { cmp_op ~ add_expr }
+in_op_tail   = { kw_in ~ add_expr }
+cmp_op       = { "<>" | "<=" | ">=" | "=" | "<" | ">" }
 
 add_expr = { mul_expr ~ (add_op ~ mul_expr)* }
 add_op   = { "+" | "-" }
@@ -76,15 +109,16 @@ neg_op       = { "-" ~ unary_expr }
 postfix_expr = { primary_expr ~ prop_access* }
 prop_access  = { "." ~ ident }
 
-primary_expr = _{ literal | param | paren_expr | var_ref }
+primary_expr = _{ literal | list_lit | param | paren_expr | var_ref }
 paren_expr   = { "(" ~ expr ~ ")" }
+list_lit     = { "[" ~ (expr ~ ("," ~ expr)*)? ~ "]" }
 var_ref      = { ident }
 
 param = ${ "$" ~ ident }
 
 literal    = _{ float | integer | string_lit | bool_lit | null_lit }
-bool_lit   = { ^"TRUE" | ^"FALSE" }
-null_lit   = { ^"NULL" }
+bool_lit   = { kw_true | kw_false }
+null_lit   = { kw_null }
 integer    = @{ ASCII_DIGIT+ }
 float      = @{ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+ }
 string_lit = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" | "'" ~ (!"'" ~ ANY)* ~ "'" }

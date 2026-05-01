@@ -25,6 +25,7 @@ pub fn parse(input: &str) -> Result<Query, ParseError> {
             Rule::match_clause => clauses.push(Clause::Match(walk_match(inner)?)),
             Rule::where_clause => clauses.push(Clause::Where(walk_clause_expr(inner)?)),
             Rule::return_clause => clauses.push(Clause::Return(walk_return(inner)?)),
+            Rule::order_by_clause => clauses.push(Clause::OrderBy(walk_order_by(inner)?)),
             Rule::limit_clause => clauses.push(Clause::Limit(walk_clause_expr(inner)?)),
             Rule::skip_clause => clauses.push(Clause::Skip(walk_clause_expr(inner)?)),
             r => return Err(unexpected("clause", r)),
@@ -36,23 +37,52 @@ pub fn parse(input: &str) -> Result<Query, ParseError> {
 // --- clauses --------------------------------------------------------------
 
 fn walk_clause_expr(pair: Pair<Rule>) -> Result<Expr, ParseError> {
-    let inner = first_inner(pair, "clause expr")?;
+    let inner = first_operand(pair, "clause expr")?;
     walk_expr(inner)
 }
 
 fn walk_match(pair: Pair<Rule>) -> Result<MatchClause, ParseError> {
     let mut patterns = Vec::new();
+    let mut optional = false;
     for inner in pair.into_inner() {
-        if inner.as_rule() == Rule::pattern_list {
-            for p in inner.into_inner() {
-                patterns.push(walk_pattern(p)?);
+        match inner.as_rule() {
+            Rule::optional_kw => optional = true,
+            Rule::pattern_list => {
+                for p in inner.into_inner() {
+                    patterns.push(walk_pattern(p)?);
+                }
+            }
+            _ => {}
+        }
+    }
+    Ok(MatchClause { optional, patterns })
+}
+
+fn walk_order_by(pair: Pair<Rule>) -> Result<Vec<OrderItem>, ParseError> {
+    let mut items = Vec::new();
+    for inner in pair.into_inner() {
+        if inner.as_rule() == Rule::order_items {
+            for oi in inner.into_inner() {
+                items.push(walk_order_item(oi)?);
             }
         }
     }
-    Ok(MatchClause {
-        optional: false,
-        patterns,
-    })
+    Ok(items)
+}
+
+fn walk_order_item(pair: Pair<Rule>) -> Result<OrderItem, ParseError> {
+    let mut iter = pair.into_inner();
+    let expr_pair = iter
+        .next()
+        .ok_or_else(|| ParseError::Unexpected("order_item: empty".into()))?;
+    let expr = walk_expr(expr_pair)?;
+    let mut desc = false;
+    for d in iter {
+        if d.as_rule() == Rule::order_dir {
+            desc = d.as_str().eq_ignore_ascii_case("DESC");
+        }
+    }
+    Ok(OrderItem { expr, desc })
 }
 
 fn walk_return(pair: Pair<Rule>) -> Result<ReturnClause, ParseError> {
@@ -178,7 +208,7 @@ fn walk_expr(pair: Pair<Rule>) -> Result<Expr, ParseError> {
         Rule::or_expr => walk_left_assoc_no_op(pair, BinOp::Or),
         Rule::and_expr => walk_left_assoc_no_op(pair, BinOp::And),
         Rule::not_op => {
-            let inner = first_inner(pair, "not")?;
+            let inner = first_operand(pair, "not")?;
             Ok(Expr::Unary {
                 op: UnOp::Not,
                 operand: Box::new(walk_expr(inner)?),
@@ -235,27 +265,36 @@ fn walk_expr(pair: Pair<Rule>) -> Result<Expr, ParseError> {
             pair.as_str().eq_ignore_ascii_case("true"),
         ))),
         Rule::null_lit => Ok(Expr::Literal(Literal::Null)),
+        Rule::list_lit => {
+            let mut items = Vec::new();
+            for item in pair.into_inner() {
+                items.push(walk_expr(item)?);
+            }
+            Ok(Expr::List(items))
+        }
         r => Err(unexpected("walk_expr", r)),
     }
 }
 
-/// `or_expr` and `and_expr` have only operand children (the keyword
-/// tokens aren't emitted by pest because they're literals, not rules).
+/// `or_expr` and `and_expr` interleave operand · kw_or/kw_and · operand · …
+/// We walk operands and skip the keyword tokens.
 fn walk_left_assoc_no_op(pair: Pair<Rule>, op: BinOp) -> Result<Expr, ParseError> {
-    let mut iter = pair.into_inner();
-    let first = iter
-        .next()
-        .ok_or_else(|| ParseError::Unexpected("left_assoc: empty".into()))?;
-    let mut acc = walk_expr(first)?;
-    for next in iter {
-        let rhs = walk_expr(next)?;
-        acc = Expr::Binary {
-            op,
-            lhs: Box::new(acc),
-            rhs: Box::new(rhs),
-        };
+    let mut acc: Option<Expr> = None;
+    for inner in pair.into_inner() {
+        if is_kw(&inner) {
+            continue;
+        }
+        let next = walk_expr(inner)?;
+        acc = Some(match acc {
+            None => next,
+            Some(lhs) => Expr::Binary {
+                op,
+                lhs: Box::new(lhs),
+                rhs: Box::new(next),
+            },
+        });
     }
-    Ok(acc)
+    acc.ok_or_else(|| ParseError::Unexpected("left_assoc: no operands".into()))
 }
 
 /// `add_expr` and `mul_expr` interleave operand, op, operand, op, ...
@@ -290,28 +329,46 @@ fn walk_cmp(pair: Pair<Rule>) -> Result<Expr, ParseError> {
         .next()
         .ok_or_else(|| ParseError::Unexpected("cmp: empty".into()))?;
     let lhs = walk_expr(lhs_pair)?;
-    let op_pair = match iter.next() {
+    let tail = match iter.next() {
         Some(p) => p,
         None => return Ok(lhs),
     };
-    let rhs_pair = iter
-        .next()
-        .ok_or_else(|| ParseError::Unexpected("cmp: missing rhs".into()))?;
-    let op = match op_pair.as_str() {
-        "=" => BinOp::Eq,
-        "<>" => BinOp::Neq,
-        "<" => BinOp::Lt,
-        "<=" => BinOp::Lte,
-        ">" => BinOp::Gt,
-        ">=" => BinOp::Gte,
-        s => return Err(ParseError::Unexpected(format!("cmp op: {s}"))),
-    };
-    let rhs = walk_expr(rhs_pair)?;
-    Ok(Expr::Binary {
-        op,
-        lhs: Box::new(lhs),
-        rhs: Box::new(rhs),
-    })
+    match tail.as_rule() {
+        Rule::cmp_op_tail => {
+            let mut tail_iter = tail.into_inner();
+            let op_pair = tail_iter
+                .next()
+                .ok_or_else(|| ParseError::Unexpected("cmp_op_tail: missing op".into()))?;
+            let rhs_pair = tail_iter
+                .next()
+                .ok_or_else(|| ParseError::Unexpected("cmp_op_tail: missing rhs".into()))?;
+            let op = match op_pair.as_str() {
+                "=" => BinOp::Eq,
+                "<>" => BinOp::Neq,
+                "<" => BinOp::Lt,
+                "<=" => BinOp::Lte,
+                ">" => BinOp::Gt,
+                ">=" => BinOp::Gte,
+                s => return Err(ParseError::Unexpected(format!("cmp op: {s}"))),
+            };
+            let rhs = walk_expr(rhs_pair)?;
+            Ok(Expr::Binary {
+                op,
+                lhs: Box::new(lhs),
+                rhs: Box::new(rhs),
+            })
+        }
+        Rule::in_op_tail => {
+            let rhs_pair = first_operand(tail, "in_op_tail")?;
+            let rhs = walk_expr(rhs_pair)?;
+            Ok(Expr::Binary {
+                op: BinOp::In,
+                lhs: Box::new(lhs),
+                rhs: Box::new(rhs),
+            })
+        }
+        r => Err(unexpected("cmp tail", r)),
+    }
 }
 
 fn walk_postfix(pair: Pair<Rule>) -> Result<Expr, ParseError> {
@@ -338,6 +395,43 @@ fn first_inner<'a>(pair: Pair<'a, Rule>, what: &'static str) -> Result<Pair<'a, 
     pair.into_inner()
         .next()
         .ok_or_else(|| ParseError::Unexpected(format!("{what}: missing inner")))
+}
+
+/// Return the first child that isn't a `kw_*` token.
+fn first_operand<'a>(
+    pair: Pair<'a, Rule>,
+    what: &'static str,
+) -> Result<Pair<'a, Rule>, ParseError> {
+    for inner in pair.into_inner() {
+        if !is_kw(&inner) {
+            return Ok(inner);
+        }
+    }
+    Err(ParseError::Unexpected(format!("{what}: missing operand")))
+}
+
+fn is_kw(p: &Pair<Rule>) -> bool {
+    matches!(
+        p.as_rule(),
+        Rule::kw_match
+            | Rule::kw_optional
+            | Rule::kw_where
+            | Rule::kw_return
+            | Rule::kw_as
+            | Rule::kw_order
+            | Rule::kw_by
+            | Rule::kw_asc
+            | Rule::kw_desc
+            | Rule::kw_limit
+            | Rule::kw_skip
+            | Rule::kw_and
+            | Rule::kw_or
+            | Rule::kw_not
+            | Rule::kw_in
+            | Rule::kw_true
+            | Rule::kw_false
+            | Rule::kw_null
+    )
 }
 
 fn unexpected(ctx: &str, rule: Rule) -> ParseError {
