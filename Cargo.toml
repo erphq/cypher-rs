@@ -1,9 +1,9 @@
 [package]
 name = "cypher-rs"
-version = "0.1.0"
+version = "0.9.0"
 edition = "2021"
 rust-version = "1.74"
-description = "openCypher front-end in Rust: lexer, parser, AST. Storage-agnostic. Pre-v0."
+description = "openCypher front-end in Rust: lexer, parser, sema, plan, optimize, cost. Storage-agnostic."
 license = "MIT"
 repository = "https://github.com/erphq/cypher-rs"
 homepage = "https://www.erp.ai"
