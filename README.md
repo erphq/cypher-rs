@@ -212,7 +212,7 @@ backend-specific) are not.
 - [x] v0.7 - cost-model trait (`CostModel`) + `CardinalityCostModel` default + `estimate_cost(plan, model) -> f64`
 - [x] v0.8 - map literals (`{key: value}`) as expressions and as node/rel pattern properties; planner desugars pattern-property maps into Filter operators
 - [x] v0.9 - anonymous rel-binding synthesis (patterns like `(:User {id: 1})` and `[:KNOWS {since: 2020}]` now lower to a Filter against an internal `__node_N` / `__rel_N` binding instead of dropping the predicate). Projection pruning (column-set tracking) deferred to v0.10.
-- [ ] v0.10 - projection pruning + `cypher-rs-sled` integration crate
+- [x] v0.10 - projection pruning analysis (`output_columns(plan)` + `required_input_columns(plan, outer_demand)` for column-set tracking; pure analysis, no plan-tree changes; executors use it to materialize only referenced bindings). `cypher-rs-sled` integration crate deferred to v0.11.
 - [ ] v1.0 - openCypher TCK ≥ 95%; used in FFS
 
 ## ✦ Topics

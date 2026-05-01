@@ -19,6 +19,7 @@ pub mod error;
 pub mod optimize;
 mod parser;
 pub mod plan;
+pub mod prune;
 pub mod sema;
 
 pub use ast::*;
@@ -27,6 +28,7 @@ pub use error::ParseError;
 pub use optimize::optimize;
 pub use parser::parse;
 pub use plan::{plan, Plan, PlanError, ProjectExpr, SortKey};
+pub use prune::{output_columns, required_input_columns};
 pub use sema::{
     analyze, analyze_with, AnalysisReport, PermissiveSchema, Schema, SemIssue, SemSeverity,
 };

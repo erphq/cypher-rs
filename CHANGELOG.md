@@ -6,6 +6,29 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-05-01
+
+### Added
+- `prune` module with two pure-analysis functions for column-set
+  tracking:
+  - `output_columns(plan)` returns the variables present at the
+    plan's output rows. For `Project` it's the alias set (or the
+    underlying `Variable` name when an item has no alias and no
+    expression-derived name).
+  - `required_input_columns(plan, outer_demand)` returns what the
+    plan's immediate input must supply so the plan can satisfy
+    `outer_demand`. Filter / Sort add their pred / key vars; Expand
+    swaps out `dst` and `rel_var` for `src`; Project drops items
+    whose visible name isn't demanded.
+- 12 integration tests covering each plan op and a composition test
+  showing `output_columns` is invariant across `optimize`.
+
+### Notes
+- No plan-tree algebra changes. Storage adapters and executors apply
+  the analysis recursively to derive per-op materialization schemas.
+- The `cypher-rs-sled` integration crate originally bundled into
+  v0.10 is deferred to v0.11.
+
 ## [0.9.0] - 2026-05-01
 
 ### Added
