@@ -6,7 +6,8 @@ fn main() {
          RETURN f.name AS name, f.created_at AS joined \
          ORDER BY joined DESC \
          LIMIT 10",
-    ).unwrap();
+    )
+    .unwrap();
     let p = plan(&q).unwrap();
     println!("{p}");
 }

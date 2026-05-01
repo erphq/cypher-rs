@@ -1,15 +1,21 @@
 //! Logical query plan and AST-to-plan lowering.
 //!
-//! v0.4 scope: a small algebra of relational/graph operators —
-//! `Scan`, `Expand`, `Filter`, `Project`, `Sort`, `Limit`, `Skip` —
-//! and a straightforward lowering that walks the parsed [`Query`]
-//! and emits a tree of [`Plan`] nodes. No optimization. No cost
-//! model. No OPTIONAL MATCH. No multi-pattern cartesian product.
-//! Those are v0.5+.
+//! v0.4 introduced a small algebra (`Scan` / `Expand` / `Filter` /
+//! `Project` / `Sort` / `Skip` / `Limit`) and lowered single-MATCH /
+//! single-pattern queries.
 //!
-//! The plan is data, not code. Print it, serialize it, optimize it,
-//! send it across a wire. See the [`std::fmt::Display`] impl for
-//! the indented tree rendering.
+//! v0.5 extends that:
+//!   - **Multi-pattern MATCH** (`MATCH (a), (b)`) lowers to a
+//!     `Cartesian` of per-pattern lowerings.
+//!   - **Multiple MATCH clauses** lower to a `Cartesian` chain
+//!     (left-deep).
+//!   - **OPTIONAL MATCH** lowers to `Optional`, a left-outer apply
+//!     that emits a row from the input even when the optional plan
+//!     produces nothing.
+//!
+//! No optimization, no cost model. The plan is data, not code —
+//! print it, serialize it, optimize it, send it across a wire. See
+//! the [`std::fmt::Display`] impl for the indented tree rendering.
 
 use std::fmt;
 
@@ -53,6 +59,16 @@ pub enum Plan {
     Skip { input: Box<Plan>, count: Expr },
     /// Keep at most `count` rows after any prior `Skip`.
     Limit { input: Box<Plan>, count: Expr },
+    /// Cartesian product of two plan trees. Left-deep by convention
+    /// (the lowerer reduces a list of patterns left-to-right).
+    Cartesian { left: Box<Plan>, right: Box<Plan> },
+    /// Outer-apply: for each row from `input`, evaluate `optional`.
+    /// If `optional` produces rows, emit them. If it produces nothing,
+    /// emit one row from `input` with the optional bindings as null.
+    Optional {
+        input: Box<Plan>,
+        optional: Box<Plan>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -71,26 +87,16 @@ pub struct SortKey {
 pub enum PlanError {
     /// The query had no clauses at all.
     EmptyQuery,
-    /// v0.4 lowers exactly one MATCH per query.
-    MultipleMatch,
-    /// v0.4 lowers exactly one pattern per MATCH.
-    MultiPattern,
-    /// v0.4 doesn't lower OPTIONAL MATCH.
-    OptionalMatchUnsupported,
+    /// `OPTIONAL MATCH` requires a prior plan to attach to.
+    OptionalMatchWithoutAnchor,
 }
 
 impl fmt::Display for PlanError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             PlanError::EmptyQuery => f.write_str("plan: empty query"),
-            PlanError::MultipleMatch => {
-                f.write_str("plan: multiple MATCH clauses are not supported in v0.4")
-            }
-            PlanError::MultiPattern => {
-                f.write_str("plan: multiple patterns in one MATCH are not supported in v0.4")
-            }
-            PlanError::OptionalMatchUnsupported => {
-                f.write_str("plan: OPTIONAL MATCH is not supported in v0.4")
+            PlanError::OptionalMatchWithoutAnchor => {
+                f.write_str("plan: OPTIONAL MATCH must follow at least one regular MATCH clause")
             }
         }
     }
@@ -109,19 +115,28 @@ pub fn plan(query: &Query) -> Result<Plan, PlanError> {
     let mut sort: Option<Vec<SortKey>> = None;
     let mut skip: Option<Expr> = None;
     let mut limit: Option<Expr> = None;
-    let mut saw_match = false;
 
     for clause in &query.clauses {
         match clause {
             Clause::Match(m) => {
+                let lowered = lower_match(m)?;
                 if m.optional {
-                    return Err(PlanError::OptionalMatchUnsupported);
+                    if matches!(plan, Plan::Empty) {
+                        return Err(PlanError::OptionalMatchWithoutAnchor);
+                    }
+                    plan = Plan::Optional {
+                        input: Box::new(plan),
+                        optional: Box::new(lowered),
+                    };
+                } else {
+                    plan = match plan {
+                        Plan::Empty => lowered,
+                        existing => Plan::Cartesian {
+                            left: Box::new(existing),
+                            right: Box::new(lowered),
+                        },
+                    };
                 }
-                if saw_match {
-                    return Err(PlanError::MultipleMatch);
-                }
-                saw_match = true;
-                plan = lower_match(m)?;
             }
             Clause::Where(e) => {
                 plan = Plan::Filter {
@@ -189,10 +204,19 @@ fn lower_match(m: &MatchClause) -> Result<Plan, PlanError> {
     if m.patterns.is_empty() {
         return Err(PlanError::EmptyQuery);
     }
-    if m.patterns.len() > 1 {
-        return Err(PlanError::MultiPattern);
+    let mut iter = m.patterns.iter();
+    let first = iter.next().expect("non-empty patterns");
+    let mut combined = lower_pattern(first);
+    for pattern in iter {
+        combined = Plan::Cartesian {
+            left: Box::new(combined),
+            right: Box::new(lower_pattern(pattern)),
+        };
     }
-    let pattern = &m.patterns[0];
+    Ok(combined)
+}
+
+fn lower_pattern(pattern: &Pattern) -> Plan {
     let mut current = Plan::Scan {
         var: pattern.anchor.var.clone(),
         label: pattern.anchor.labels.first().cloned(),
@@ -210,7 +234,7 @@ fn lower_match(m: &MatchClause) -> Result<Plan, PlanError> {
         };
         head = chain.node.var.clone();
     }
-    Ok(current)
+    current
 }
 
 // --- pretty-printing -------------------------------------------------------
@@ -284,6 +308,16 @@ fn write_plan(plan: &Plan, f: &mut fmt::Formatter<'_>, depth: usize, root: bool)
         Plan::Limit { input, count } => {
             writeln!(f, "Limit {{ count: {count:?} }}")?;
             write_plan(input, f, depth + 1, false)?;
+        }
+        Plan::Cartesian { left, right } => {
+            writeln!(f, "Cartesian")?;
+            write_plan(left, f, depth + 1, false)?;
+            write_plan(right, f, depth + 1, false)?;
+        }
+        Plan::Optional { input, optional } => {
+            writeln!(f, "Optional")?;
+            write_plan(input, f, depth + 1, false)?;
+            write_plan(optional, f, depth + 1, false)?;
         }
     }
     Ok(())

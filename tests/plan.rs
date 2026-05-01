@@ -147,50 +147,72 @@ fn alias_preserved_in_project() {
 }
 
 #[test]
-fn optional_match_errors() {
+fn optional_match_without_anchor_errors() {
     let q = parse("OPTIONAL MATCH (u) RETURN u").unwrap();
-    assert_eq!(plan(&q), Err(PlanError::OptionalMatchUnsupported));
+    assert_eq!(plan(&q), Err(PlanError::OptionalMatchWithoutAnchor));
 }
 
 #[test]
-fn multi_pattern_errors() {
+fn multi_pattern_lowers_to_cartesian() {
     let q = parse("MATCH (u), (v) RETURN u").unwrap();
-    assert_eq!(plan(&q), Err(PlanError::MultiPattern));
+    let p = plan(&q).unwrap();
+    match p {
+        Plan::Project { input, .. } => match *input {
+            Plan::Cartesian { left, right } => {
+                assert!(matches!(*left, Plan::Scan { .. }));
+                assert!(matches!(*right, Plan::Scan { .. }));
+            }
+            other => panic!("expected Cartesian, got {other:?}"),
+        },
+        other => panic!("expected Project, got {other:?}"),
+    }
 }
 
 #[test]
-fn multiple_match_errors() {
-    let q = Query {
-        clauses: vec![
-            Clause::Match(MatchClause {
-                optional: false,
-                patterns: vec![Pattern {
-                    anchor: NodePattern {
-                        var: Some("u".into()),
-                        labels: vec![],
-                    },
-                    chain: vec![],
-                }],
-            }),
-            Clause::Match(MatchClause {
-                optional: false,
-                patterns: vec![Pattern {
-                    anchor: NodePattern {
-                        var: Some("v".into()),
-                        labels: vec![],
-                    },
-                    chain: vec![],
-                }],
-            }),
-            Clause::Return(ReturnClause {
-                items: vec![ReturnItem {
-                    expr: Expr::Variable("u".into()),
-                    alias: None,
-                }],
-            }),
-        ],
-    };
-    assert_eq!(plan(&q), Err(PlanError::MultipleMatch));
+fn multiple_match_lowers_to_cartesian() {
+    let q = parse("MATCH (u) MATCH (v) RETURN u").unwrap();
+    let p = plan(&q).unwrap();
+    match p {
+        Plan::Project { input, .. } => assert!(matches!(*input, Plan::Cartesian { .. })),
+        other => panic!("expected Project over Cartesian, got {other:?}"),
+    }
+}
+
+#[test]
+fn optional_match_after_match_lowers_to_optional() {
+    let q = parse("MATCH (u:User) OPTIONAL MATCH (u)-[:FOLLOWS]->(f) RETURN u, f").unwrap();
+    let p = plan(&q).unwrap();
+    match p {
+        Plan::Project { input, .. } => match *input {
+            Plan::Optional {
+                input: i,
+                optional: o,
+            } => {
+                assert!(matches!(*i, Plan::Scan { .. }));
+                // Optional branch is itself an Expand-over-Scan
+                assert!(matches!(*o, Plan::Expand { .. }));
+            }
+            other => panic!("expected Optional, got {other:?}"),
+        },
+        other => panic!("expected Project, got {other:?}"),
+    }
+}
+
+#[test]
+fn three_pattern_match_chains_left_deep() {
+    let q = parse("MATCH (a), (b), (c) RETURN a").unwrap();
+    let p = plan(&q).unwrap();
+    match p {
+        Plan::Project { input, .. } => match *input {
+            // Left-deep: Cartesian(Cartesian(a, b), c)
+            Plan::Cartesian { left, right } => {
+                assert!(matches!(*left, Plan::Cartesian { .. }));
+                assert!(matches!(*right, Plan::Scan { .. }));
+            }
+            other => panic!("expected Cartesian, got {other:?}"),
+        },
+        _ => panic!(),
+    }
 }
 
 #[test]
