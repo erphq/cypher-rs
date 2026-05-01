@@ -15,12 +15,14 @@
 
 pub mod ast;
 pub mod error;
+pub mod optimize;
 mod parser;
 pub mod plan;
 pub mod sema;
 
 pub use ast::*;
 pub use error::ParseError;
+pub use optimize::optimize;
 pub use parser::parse;
 pub use plan::{plan, Plan, PlanError, ProjectExpr, SortKey};
 pub use sema::{
