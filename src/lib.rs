@@ -1,4 +1,4 @@
-//! `cypher-rs` — openCypher front-end in Rust.
+//! `cypher-rs` - openCypher front-end in Rust.
 //!
 //! Pre-v0. Parses a subset of openCypher: `MATCH`, `WHERE`, `RETURN`,
 //! `LIMIT`, `SKIP` plus expressions (literals, variables, property

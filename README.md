@@ -20,7 +20,7 @@ on `libcypher-parser` as a C dependency.
 
 > **The thesis.** Every embedded graph DB ends up reimplementing the
 > same Cypher front-end, badly. The parser and the planner are
-> separable from storage and execution — there's no good reason for
+> separable from storage and execution - there's no good reason for
 > each graph store to ship its own. This crate is the front-end,
 > alone, done well, no batteries.
 
@@ -30,10 +30,10 @@ on `libcypher-parser` as a C dependency.
 
 There are good Cypher implementations behind the parser:
 
-- **Neo4j** — closed-source, Java, JVM-only, embedded use is awkward.
-- **`libcypher-parser`** — C, used by libgraph, requires linking against C.
-- **Memgraph / RedisGraph** — embedded inside the database; not reusable.
-- **Hand-rolled parsers** — every embedded graph DB project, every
+- **Neo4j** - closed-source, Java, JVM-only, embedded use is awkward.
+- **`libcypher-parser`** - C, used by libgraph, requires linking against C.
+- **Memgraph / RedisGraph** - embedded inside the database; not reusable.
+- **Hand-rolled parsers** - every embedded graph DB project, every
   five years.
 
 What's missing: a pure-Rust, library-grade, MIT-licensed Cypher
@@ -48,7 +48,7 @@ stops where storage starts.
 | Lexer | tokens for openCypher 9 grammar | partial (v0.2) |
 | Parser | concrete syntax tree | partial (v0.2: MATCH/OPTIONAL MATCH/WHERE/RETURN/ORDER BY/LIMIT/SKIP, list literals, IN) |
 | AST lowering | symbol table, variable binding | partial (v0.3) |
-| Semantic analysis | scope / label / rel-type checks | partial (v0.3 — type checks deferred) |
+| Semantic analysis | scope / label / rel-type checks | partial (v0.3 - type checks deferred) |
 | Logical plan | algebra: scan · expand · filter · project · agg | planned |
 | Plan rewriter | predicate pushdown, projection pruning | planned |
 | Cost model | pluggable trait; default = cardinality-only | planned |
@@ -94,9 +94,9 @@ Plug your executor under that and you have a Cypher engine.
 - **No `libcypher-parser` dependency.** Pure Rust; builds anywhere
   Rust builds. No `bindgen`, no `pkg-config`, no system C library.
 - **No executor coupling.** Plug into Sled, RocksDB, FFS, in-memory,
-  remote — the crate doesn't care.
+  remote - the crate doesn't care.
 - **Reusable across deployments.** Embedded graph DB, server-side
-  graph DB, OLAP graph engine — same front-end.
+  graph DB, OLAP graph engine - same front-end.
 - **Inspectable plans.** The logical plan is data, not code. Print it,
   serialize it, optimize it, send it across a wire.
 
@@ -119,7 +119,7 @@ Logical plans are built from a small algebra:
 
 | Op | Inputs | Output |
 |---|---|---|
-| `Scan { var, label? }` | — | rows binding `var` |
+| `Scan { var, label? }` | - | rows binding `var` |
 | `Expand { src, rel, dir, dst, label? }` | rows | rows extended with `dst` |
 | `Filter { pred }` | rows | rows where `pred` holds |
 | `Project { exprs }` | rows | rows with new columns |
@@ -151,10 +151,10 @@ v0 targets the parser-only subset. v1 targets ≥95% on the full TCK.
 
 ## ✦ Integrations (planned)
 
-- `cypher-rs-sled` — adapter for the [Sled](https://sled.rs) embedded KV store
-- `cypher-rs-rocksdb` — adapter for RocksDB
-- `cypher-rs-ffs` — adapter for the FFS embedded graph DB (closed)
-- `cypher-rs-arrow` — vectorized executor over Apache Arrow
+- `cypher-rs-sled` - adapter for the [Sled](https://sled.rs) embedded KV store
+- `cypher-rs-rocksdb` - adapter for RocksDB
+- `cypher-rs-ffs` - adapter for the FFS embedded graph DB (closed)
+- `cypher-rs-arrow` - vectorized executor over Apache Arrow
 
 ## ✦ Diagnostics
 
@@ -173,7 +173,7 @@ error: unknown property `naem` on label `User`
 
 - **Physical execution.** That's the storage adapter's job.
 - **Storage layer.** Not here.
-- **Neo4j-specific extensions.** APOC, GDS, Bolt, internal catalogs —
+- **Neo4j-specific extensions.** APOC, GDS, Bolt, internal catalogs -
   out of scope. The goal is portable openCypher, not Cypher-as-Neo4j.
 - **Distributed planning.** A future crate, not this one.
 
@@ -188,7 +188,7 @@ A: openCypher is a strict subset of GQL. The plan is openCypher → GQL
 delta tracking, with a feature flag.
 
 **Q: Will this work in WebAssembly?**
-A: Yes — pure Rust, no `unsafe`, no system deps. A `cypher-rs-wasm`
+A: Yes - pure Rust, no `unsafe`, no system deps. A `cypher-rs-wasm`
 companion crate is on the roadmap.
 
 **Q: Why pest and not lalrpop / chumsky / nom?**
@@ -202,17 +202,17 @@ backend-specific) are not.
 
 ## ✦ Roadmap
 
-- [x] v0.0 — scaffold, design, scope
-- [x] v0.1 — lexer + parser; MATCH / WHERE / RETURN / LIMIT / SKIP, expressions
-- [x] v0.2 — OPTIONAL MATCH · ORDER BY (multi-key, ASC/DESC) · list literals · `IN`. Atomic `kw_*` rules with word-boundary checks for every keyword.
-- [x] v0.3 — semantic analyzer (variable binding · scope check · optional schema-aware label / rel-type validation via `Schema` trait)
-- [x] v0.4 — logical plan + algebra (Empty · Scan · Expand · Filter · Project · Sort · Skip · Limit) with indented tree pretty-print
-- [x] v0.5 — multi-pattern Cartesian · multiple MATCH clauses · OPTIONAL MATCH (`Optional` outer-apply)
-- [x] v0.6 — predicate pushdown optimizer (`optimize(plan)` to fixpoint; pushes through Project / Sort / Cartesian; respects Limit / Skip / Optional)
-- [x] v0.7 — cost-model trait (`CostModel`) + `CardinalityCostModel` default + `estimate_cost(plan, model) -> f64`
-- [ ] v0.8 — projection pruning (column-set tracking)
-- [ ] v0.9 — `cypher-rs-sled` integration crate
-- [ ] v1.0 — openCypher TCK ≥ 95%; used in FFS
+- [x] v0.0 - scaffold, design, scope
+- [x] v0.1 - lexer + parser; MATCH / WHERE / RETURN / LIMIT / SKIP, expressions
+- [x] v0.2 - OPTIONAL MATCH · ORDER BY (multi-key, ASC/DESC) · list literals · `IN`. Atomic `kw_*` rules with word-boundary checks for every keyword.
+- [x] v0.3 - semantic analyzer (variable binding · scope check · optional schema-aware label / rel-type validation via `Schema` trait)
+- [x] v0.4 - logical plan + algebra (Empty · Scan · Expand · Filter · Project · Sort · Skip · Limit) with indented tree pretty-print
+- [x] v0.5 - multi-pattern Cartesian · multiple MATCH clauses · OPTIONAL MATCH (`Optional` outer-apply)
+- [x] v0.6 - predicate pushdown optimizer (`optimize(plan)` to fixpoint; pushes through Project / Sort / Cartesian; respects Limit / Skip / Optional)
+- [x] v0.7 - cost-model trait (`CostModel`) + `CardinalityCostModel` default + `estimate_cost(plan, model) -> f64`
+- [ ] v0.8 - projection pruning (column-set tracking)
+- [ ] v0.9 - `cypher-rs-sled` integration crate
+- [ ] v1.0 - openCypher TCK ≥ 95%; used in FFS
 
 ## ✦ Topics
 
@@ -222,4 +222,4 @@ backend-specific) are not.
 
 ## ✦ License
 
-MIT — see [LICENSE](./LICENSE).
+MIT - see [LICENSE](./LICENSE).

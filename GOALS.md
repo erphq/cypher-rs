@@ -24,7 +24,7 @@ server-side graph DB project that doesn't want to carry libcypher-parser.
 - Parser: `pest` for v0 simplicity, may switch to `lalrpop` if perf demands
 - AST: enum-heavy, no Box-everywhere; arena alloc later if needed
 - Errors: `miette` for span-aware diagnostics
-- No async — front-end is pure CPU work
+- No async - front-end is pure CPU work
 
 ## Non-goals
 - Physical execution

@@ -41,7 +41,7 @@ fn pushes_filter_through_sort() {
 #[test]
 fn does_not_push_through_limit() {
     let p = parse_plan_optimize("MATCH (u) RETURN u LIMIT 10");
-    // No filter at all in this query — sanity test that pushdown
+    // No filter at all in this query - sanity test that pushdown
     // doesn't synthesize one.
     match p {
         Plan::Limit { input, .. } => match *input {
@@ -94,7 +94,7 @@ fn pushes_filter_into_right_side_of_cartesian() {
 #[test]
 fn keeps_filter_above_cartesian_when_predicate_spans_both() {
     let p = parse_plan_optimize("MATCH (u), (v) WHERE u.id = v.id RETURN u, v");
-    // Predicate uses both sides — must stay above the Cartesian.
+    // Predicate uses both sides - must stay above the Cartesian.
     match p {
         Plan::Project { input, .. } => match *input {
             Plan::Filter { input: i2, .. } => {
@@ -109,7 +109,7 @@ fn keeps_filter_above_cartesian_when_predicate_spans_both() {
 #[test]
 fn does_not_push_filter_referencing_project_alias() {
     let p = parse_plan_optimize("MATCH (u) RETURN u.score AS s ORDER BY s LIMIT 5");
-    // The query has no WHERE — check that ORDER BY on alias `s`
+    // The query has no WHERE - check that ORDER BY on alias `s`
     // doesn't accidentally trigger pushdown of nothing.
     let s = format!("{p}");
     assert!(s.contains("Project"));
@@ -140,7 +140,7 @@ fn does_not_push_through_optional() {
     );
     // The WHERE references `f` which is bound by the OPTIONAL branch.
     // The filter must NOT push into the optional branch (that would
-    // change semantics — null rows would survive vs. be filtered).
+    // change semantics - null rows would survive vs. be filtered).
     match p {
         Plan::Project { input, .. } => match *input {
             Plan::Filter { input: i2, .. } => {

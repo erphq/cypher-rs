@@ -13,7 +13,7 @@
 //!     that emits a row from the input even when the optional plan
 //!     produces nothing.
 //!
-//! No optimization, no cost model. The plan is data, not code —
+//! No optimization, no cost model. The plan is data, not code -
 //! print it, serialize it, optimize it, send it across a wire. See
 //! the [`std::fmt::Display`] impl for the indented tree rendering.
 

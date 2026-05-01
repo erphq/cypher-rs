@@ -3,17 +3,17 @@
 //! Two pieces:
 //!
 //!   1. The [`CostModel`] trait. Users plug in whatever statistics
-//!      they have — exact node counts from a catalog, sampled
+//!      they have - exact node counts from a catalog, sampled
 //!      counts, or hand-tuned defaults. The trait carries methods
 //!      for the three knobs that drive plan cost: scan cardinality,
 //!      expand fan-out, and filter selectivity.
 //!
-//!   2. [`CardinalityCostModel`] — a permissive default that knows
+//!   2. [`CardinalityCostModel`] - a permissive default that knows
 //!      nothing concrete and applies simple constants. Useful for
 //!      tests, demos, and "good enough until you have stats."
 //!
 //! Cost is estimated by [`estimate_cost`], which walks the plan tree
-//! and returns a single `f64` — bigger is more expensive. The score
+//! and returns a single `f64` - bigger is more expensive. The score
 //! is unitless; what matters is comparing two plans against the same
 //! model.
 //!
@@ -41,14 +41,14 @@ pub trait CostModel {
         2.0
     }
 
-    /// Estimated selectivity of `pred` — the fraction of rows that
+    /// Estimated selectivity of `pred` - the fraction of rows that
     /// pass it. Must be in `[0.0, 1.0]`.
     fn filter_selectivity(&self, _pred: &Expr) -> f64 {
         0.1
     }
 }
 
-/// Cardinality-driven default cost model. No statistics — just
+/// Cardinality-driven default cost model. No statistics - just
 /// configurable defaults plus optional per-label / per-rel-type
 /// overrides.
 #[derive(Debug, Clone)]
@@ -105,7 +105,7 @@ impl CostModel for CardinalityCostModel {
         if rel_types.is_empty() {
             return self.default_fanout;
         }
-        // Average across listed rel-types — the planner doesn't yet
+        // Average across listed rel-types - the planner doesn't yet
         // know which one a row will follow.
         let total: f64 = rel_types
             .iter()
@@ -132,7 +132,7 @@ pub struct Estimate {
 }
 
 /// Estimate the cost of `plan` against `model`. The returned `f64` is
-/// unitless — compare plans, don't compare across models.
+/// unitless - compare plans, don't compare across models.
 pub fn estimate_cost<M: CostModel + ?Sized>(plan: &Plan, model: &M) -> f64 {
     estimate(plan, model).cost
 }

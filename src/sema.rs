@@ -10,7 +10,7 @@
 //!    `LIMIT` / `SKIP` and check that every `Expr::Variable` resolves
 //!    to either a binding or a parameter (which is always external).
 //! 3. Also flag references to labels and relationship types against
-//!    an optional `Schema` — but only when the user provides one.
+//!    an optional `Schema` - but only when the user provides one.
 //!    Without a schema, the analyzer is silent on labels.
 //!
 //! Type checking, expression-level type inference, and physical
