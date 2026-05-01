@@ -1,0 +1,116 @@
+//! Abstract syntax tree for the openCypher subset supported in v0.
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Query {
+    pub clauses: Vec<Clause>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Clause {
+    Match(MatchClause),
+    Where(Expr),
+    Return(ReturnClause),
+    Limit(Expr),
+    Skip(Expr),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MatchClause {
+    pub optional: bool,
+    pub patterns: Vec<Pattern>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Pattern {
+    pub anchor: NodePattern,
+    pub chain: Vec<RelChain>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RelChain {
+    pub rel: RelPattern,
+    pub node: NodePattern,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct NodePattern {
+    pub var: Option<String>,
+    pub labels: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RelPattern {
+    pub var: Option<String>,
+    pub direction: Direction,
+    pub types: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Direction {
+    Outgoing,
+    Incoming,
+    Undirected,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReturnClause {
+    pub items: Vec<ReturnItem>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ReturnItem {
+    pub expr: Expr,
+    pub alias: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Expr {
+    Literal(Literal),
+    Variable(String),
+    Param(String),
+    Property {
+        base: Box<Expr>,
+        key: String,
+    },
+    Binary {
+        op: BinOp,
+        lhs: Box<Expr>,
+        rhs: Box<Expr>,
+    },
+    Unary {
+        op: UnOp,
+        operand: Box<Expr>,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Literal {
+    Int(i64),
+    Float(f64),
+    String(String),
+    Bool(bool),
+    Null,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BinOp {
+    Eq,
+    Neq,
+    Lt,
+    Lte,
+    Gt,
+    Gte,
+    And,
+    Or,
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Mod,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UnOp {
+    Not,
+    Neg,
+}

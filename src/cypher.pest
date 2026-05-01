@@ -1,0 +1,90 @@
+// Minimal openCypher subset for cypher-rs v0.
+//
+// Whitespace is skipped between non-atomic rules. Atomic rules
+// (those marked `@`) preserve internal whitespace.
+
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+COMMENT = _{ "//" ~ (!"\n" ~ ANY)* }
+
+// --- keywords ---------------------------------------------------------
+
+reserved_kw = @{
+    ( ^"MATCH" | ^"WHERE" | ^"RETURN" | ^"AS"
+    | ^"LIMIT" | ^"SKIP"
+    | ^"AND" | ^"OR" | ^"NOT"
+    | ^"TRUE" | ^"FALSE" | ^"NULL" )
+    ~ !(ASCII_ALPHANUMERIC | "_")
+}
+
+ident = @{
+    !reserved_kw ~ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")*
+}
+
+// --- top --------------------------------------------------------------
+
+query = { SOI ~ clause+ ~ EOI }
+
+clause = _{ match_clause | where_clause | return_clause | limit_clause | skip_clause }
+
+match_clause  = { ^"MATCH" ~ pattern_list }
+where_clause  = { ^"WHERE" ~ expr }
+return_clause = { ^"RETURN" ~ return_items }
+limit_clause  = { ^"LIMIT" ~ expr }
+skip_clause   = { ^"SKIP" ~ expr }
+
+// --- patterns ---------------------------------------------------------
+
+pattern_list = { pattern ~ ("," ~ pattern)* }
+pattern      = { node_pattern ~ rel_chain* }
+rel_chain    = { rel_pattern ~ node_pattern }
+
+node_pattern = { "(" ~ ident? ~ labels? ~ ")" }
+labels       = { label+ }
+label        = { ":" ~ ident }
+
+rel_pattern    = { rel_left | rel_right | rel_undirected }
+rel_left       = { "<-" ~ rel_detail? ~ "-" }
+rel_right      = { "-" ~ rel_detail? ~ "->" }
+rel_undirected = { "-" ~ rel_detail? ~ "-" }
+rel_detail     = { "[" ~ ident? ~ rel_types? ~ "]" }
+rel_types      = { ":" ~ ident ~ ("|" ~ ident)* }
+
+// --- return -----------------------------------------------------------
+
+return_items = { return_item ~ ("," ~ return_item)* }
+return_item  = { expr ~ alias? }
+alias        = { ^"AS" ~ ident }
+
+// --- expressions ------------------------------------------------------
+
+expr     = { or_expr }
+or_expr  = { and_expr ~ (^"OR" ~ and_expr)* }
+and_expr = { not_expr ~ (^"AND" ~ not_expr)* }
+not_expr = _{ not_op | cmp_expr }
+not_op   = { ^"NOT" ~ not_expr }
+
+cmp_expr = { add_expr ~ (cmp_op ~ add_expr)? }
+cmp_op   = { "<>" | "<=" | ">=" | "=" | "<" | ">" }
+
+add_expr = { mul_expr ~ (add_op ~ mul_expr)* }
+add_op   = { "+" | "-" }
+mul_expr = { unary_expr ~ (mul_op ~ unary_expr)* }
+mul_op   = { "*" | "/" | "%" }
+
+unary_expr   = _{ neg_op | postfix_expr }
+neg_op       = { "-" ~ unary_expr }
+postfix_expr = { primary_expr ~ prop_access* }
+prop_access  = { "." ~ ident }
+
+primary_expr = _{ literal | param | paren_expr | var_ref }
+paren_expr   = { "(" ~ expr ~ ")" }
+var_ref      = { ident }
+
+param = ${ "$" ~ ident }
+
+literal    = _{ float | integer | string_lit | bool_lit | null_lit }
+bool_lit   = { ^"TRUE" | ^"FALSE" }
+null_lit   = { ^"NULL" }
+integer    = @{ ASCII_DIGIT+ }
+float      = @{ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+ }
+string_lit = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" | "'" ~ (!"'" ~ ANY)* ~ "'" }

@@ -1,0 +1,22 @@
+[package]
+name = "cypher-rs"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.74"
+description = "openCypher front-end in Rust: lexer, parser, AST. Storage-agnostic. Pre-v0."
+license = "MIT"
+repository = "https://github.com/erphq/cypher-rs"
+homepage = "https://www.erp.ai"
+documentation = "https://docs.rs/cypher-rs"
+readme = "README.md"
+keywords = ["cypher", "opencypher", "graph-database", "parser", "query-language"]
+categories = ["parser-implementations", "database"]
+
+[dependencies]
+pest = "2.7"
+pest_derive = "2.7"
+thiserror = "1.0"
+
+[lib]
+name = "cypher_rs"
+path = "src/lib.rs"
