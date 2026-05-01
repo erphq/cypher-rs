@@ -14,6 +14,7 @@
 //! Roadmap and scope: see the project README.
 
 pub mod ast;
+pub mod cost;
 pub mod error;
 pub mod optimize;
 mod parser;
@@ -21,6 +22,7 @@ pub mod plan;
 pub mod sema;
 
 pub use ast::*;
+pub use cost::{estimate, estimate_cost, CardinalityCostModel, CostModel, Estimate};
 pub use error::ParseError;
 pub use optimize::optimize;
 pub use parser::parse;
