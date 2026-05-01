@@ -13,6 +13,7 @@ server-side graph DB project that doesn't want to carry libcypher-parser.
 - Semantic analyzer: variable binding ✅, scope check ✅, schema-aware
   label/rel-type validation via opt-in `Schema` trait ✅ (type checks
   deferred to v0.4)
+- Logical plan + algebra ✅ (v0.4 base 8 ops + v0.5: Cartesian / Optional)
 
 ## v1 success criteria
 - openCypher TCK conformance ≥ 95%
