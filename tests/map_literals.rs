@@ -170,13 +170,78 @@ fn rel_property_map_with_bound_var_lowers_to_filter_after_expand() {
 }
 
 #[test]
-fn rel_property_map_without_bound_var_skips_filter_v0_8() {
-    // v0.8 limitation: `[:KNOWS {since: 2020}]` (no var) parses but
-    // produces no filter because there's nothing to attach the
-    // predicate to. v0.9 will synthesize an internal binding.
+fn rel_property_map_without_bound_var_synthesizes_filter() {
+    // v0.9: `[:KNOWS {since: 2020}]` (no var) synthesizes an
+    // internal binding so the property predicate has something to
+    // attach to. The lowered shape is Project > Filter > Expand
+    // and the filter's lhs references the synthesized rel var.
     let p = pq("MATCH (u)-[:KNOWS {since: 2020}]->(v) RETURN v");
     match p {
-        Plan::Project { input, .. } => assert!(matches!(*input, Plan::Expand { .. })),
+        Plan::Project { input, .. } => match *input {
+            Plan::Filter { input: i2, pred } => {
+                assert!(matches!(*i2, Plan::Expand { .. }));
+                if let Expr::Binary { lhs, .. } = pred {
+                    if let Expr::Property { base, key } = *lhs {
+                        assert_eq!(key, "since");
+                        match *base {
+                            Expr::Variable(v) => assert!(
+                                v.starts_with("__rel_"),
+                                "expected synthesized rel var, got {v}"
+                            ),
+                            other => panic!("expected Variable, got {other:?}"),
+                        }
+                    } else {
+                        panic!("expected Property lhs");
+                    }
+                } else {
+                    panic!("expected Binary pred");
+                }
+            }
+            other => panic!("expected Filter over Expand, got {other:?}"),
+        },
+        _ => panic!(),
+    }
+}
+
+#[test]
+fn anonymous_node_with_property_map_synthesizes_filter() {
+    // `(:User {id: 1})` has no var; v0.9 synthesizes one so the
+    // property equality lowers to a Filter over the Scan.
+    let p = pq("MATCH (:User {id: 1}) RETURN 1");
+    match p {
+        Plan::Project { input, .. } => match *input {
+            Plan::Filter { input: scan, pred } => {
+                assert!(matches!(*scan, Plan::Scan { .. }));
+                if let Expr::Binary { lhs, .. } = pred {
+                    if let Expr::Property { base, key } = *lhs {
+                        assert_eq!(key, "id");
+                        match *base {
+                            Expr::Variable(v) => assert!(
+                                v.starts_with("__node_"),
+                                "expected synthesized node var, got {v}"
+                            ),
+                            other => panic!("expected Variable, got {other:?}"),
+                        }
+                    }
+                }
+            }
+            other => panic!("expected Filter over Scan, got {other:?}"),
+        },
+        _ => panic!(),
+    }
+}
+
+#[test]
+fn anonymous_pattern_without_properties_skips_synthesis() {
+    // `(:User)` with no properties does NOT need a binding. The
+    // synthesizer must not invent one when there's nothing to
+    // attach: the lowered shape stays a bare Scan under Project.
+    let p = pq("MATCH (:User) RETURN 1");
+    match p {
+        Plan::Project { input, .. } => match *input {
+            Plan::Scan { var, .. } => assert!(var.is_none(), "expected no var, got {var:?}"),
+            other => panic!("expected Scan, got {other:?}"),
+        },
         _ => panic!(),
     }
 }

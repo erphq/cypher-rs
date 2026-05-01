@@ -217,42 +217,89 @@ fn lower_match(m: &MatchClause) -> Result<Plan, PlanError> {
 }
 
 fn lower_pattern(pattern: &Pattern) -> Plan {
+    let mut synth = Synth::default();
+
+    // Anchor: synthesize a binding only if it has properties but no var.
+    let anchor_var = effective_var(
+        &pattern.anchor.var,
+        &pattern.anchor.properties,
+        "node",
+        &mut synth,
+    );
     let mut current = Plan::Scan {
-        var: pattern.anchor.var.clone(),
+        var: anchor_var.clone(),
         label: pattern.anchor.labels.first().cloned(),
     };
-    if let Some(filter) = pattern_property_filter(&pattern.anchor.var, &pattern.anchor.properties) {
+    if let Some(filter) = pattern_property_filter(&anchor_var, &pattern.anchor.properties) {
         current = Plan::Filter {
             input: Box::new(current),
             pred: filter,
         };
     }
-    let mut head = pattern.anchor.var.clone();
+    let mut head = anchor_var;
+
     for chain in &pattern.chain {
+        let rel_var = effective_var(&chain.rel.var, &chain.rel.properties, "rel", &mut synth);
+        let dst_var = effective_var(&chain.node.var, &chain.node.properties, "node", &mut synth);
+
         current = Plan::Expand {
             input: Box::new(current),
             src: head.clone(),
-            rel_var: chain.rel.var.clone(),
+            rel_var: rel_var.clone(),
             rel_types: chain.rel.types.clone(),
             direction: chain.rel.direction,
-            dst: chain.node.var.clone(),
+            dst: dst_var.clone(),
             dst_label: chain.node.labels.first().cloned(),
         };
-        if let Some(filter) = pattern_property_filter(&chain.rel.var, &chain.rel.properties) {
+        if let Some(filter) = pattern_property_filter(&rel_var, &chain.rel.properties) {
             current = Plan::Filter {
                 input: Box::new(current),
                 pred: filter,
             };
         }
-        if let Some(filter) = pattern_property_filter(&chain.node.var, &chain.node.properties) {
+        if let Some(filter) = pattern_property_filter(&dst_var, &chain.node.properties) {
             current = Plan::Filter {
                 input: Box::new(current),
                 pred: filter,
             };
         }
-        head = chain.node.var.clone();
+        head = dst_var;
     }
     current
+}
+
+/// Counter for synthesized binding names, scoped to one `lower_pattern` call.
+#[derive(Default)]
+struct Synth {
+    next: usize,
+}
+
+impl Synth {
+    fn fresh(&mut self, prefix: &str) -> String {
+        let name = format!("__{prefix}_{}", self.next);
+        self.next += 1;
+        name
+    }
+}
+
+/// Returns the variable name to use for a pattern element. If the user
+/// supplied a name, use it. Otherwise, if the element has properties
+/// that need a binding to attach a filter to, synthesize one
+/// (`__node_0`, `__rel_1`, etc.). If neither, return `None` and let
+/// the operator be unbound.
+fn effective_var(
+    user_var: &Option<String>,
+    properties: &[(String, Expr)],
+    prefix: &str,
+    synth: &mut Synth,
+) -> Option<String> {
+    if let Some(v) = user_var {
+        return Some(v.clone());
+    }
+    if properties.is_empty() {
+        return None;
+    }
+    Some(synth.fresh(prefix))
 }
 
 /// Desugar a pattern's `{key: value}` block into a single AND-chain
