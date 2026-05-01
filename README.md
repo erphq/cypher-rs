@@ -18,28 +18,11 @@ No opinion about how nodes and edges are laid out on disk. Drop it into
 any Rust graph-DB-shaped project that needs Cypher input without taking
 on `libcypher-parser` as a C dependency.
 
-> **The thesis.** Every embedded graph DB ends up reimplementing the
-> same Cypher front-end, badly. The parser and the planner are
-> separable from storage and execution - there's no good reason for
-> each graph store to ship its own. This crate is the front-end,
-> alone, done well, no batteries.
+## Why
 
----
+Every embedded graph DB ends up reimplementing the same Cypher front-end. The parser and the planner are separable from storage and execution, and there's no good reason each graph store should ship its own. The existing implementations sit behind the parser: Neo4j is closed-source Java, `libcypher-parser` is C and pulls in `bindgen` / `pkg-config` plumbing on every build, Memgraph and RedisGraph keep their parsers inside the database, and the rest are hand-rolled per project.
 
-## ✦ Why a standalone front-end
-
-There are good Cypher implementations behind the parser:
-
-- **Neo4j** - closed-source, Java, JVM-only, embedded use is awkward.
-- **`libcypher-parser`** - C, used by libgraph, requires linking against C.
-- **Memgraph / RedisGraph** - embedded inside the database; not reusable.
-- **Hand-rolled parsers** - every embedded graph DB project, every
-  five years.
-
-What's missing: a pure-Rust, library-grade, MIT-licensed Cypher
-front-end with a clean separation between parsing, semantic analysis,
-logical planning, and physical execution. `cypher-rs` is that piece. It
-stops where storage starts.
+What's missing is a pure-Rust, library-grade, MIT-licensed Cypher front-end with a clean separation between parsing, semantic analysis, logical planning, and execution. `cypher-rs` is that piece. It stops where storage starts.
 
 ## ✦ Scope
 
@@ -89,16 +72,12 @@ Limit { count: 10 }
 
 Plug your executor under that and you have a Cypher engine.
 
-## ✦ Why standalone matters
+## ✦ What separation buys you
 
-- **No `libcypher-parser` dependency.** Pure Rust; builds anywhere
-  Rust builds. No `bindgen`, no `pkg-config`, no system C library.
-- **No executor coupling.** Plug into Sled, RocksDB, FFS, in-memory,
-  remote - the crate doesn't care.
-- **Reusable across deployments.** Embedded graph DB, server-side
-  graph DB, OLAP graph engine - same front-end.
-- **Inspectable plans.** The logical plan is data, not code. Print it,
-  serialize it, optimize it, send it across a wire.
+- **No `libcypher-parser` dependency.** Pure Rust; builds anywhere Rust builds. No `bindgen`, no `pkg-config`, no system C library.
+- **No executor coupling.** Plug into Sled, RocksDB, FFS, in-memory, remote; the crate doesn't care.
+- **Reusable across deployments.** Embedded graph DB, server-side graph DB, OLAP graph engine; same front-end.
+- **Inspectable plans.** The logical plan is data, not code. Print it, serialize it, optimize it, send it across a wire.
 
 ## ✦ Design choices
 
