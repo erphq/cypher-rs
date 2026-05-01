@@ -210,8 +210,9 @@ backend-specific) are not.
 - [x] v0.5 - multi-pattern Cartesian · multiple MATCH clauses · OPTIONAL MATCH (`Optional` outer-apply)
 - [x] v0.6 - predicate pushdown optimizer (`optimize(plan)` to fixpoint; pushes through Project / Sort / Cartesian; respects Limit / Skip / Optional)
 - [x] v0.7 - cost-model trait (`CostModel`) + `CardinalityCostModel` default + `estimate_cost(plan, model) -> f64`
-- [ ] v0.8 - projection pruning (column-set tracking)
-- [ ] v0.9 - `cypher-rs-sled` integration crate
+- [x] v0.8 - map literals (`{key: value}`) as expressions and as node/rel pattern properties; planner desugars pattern-property maps into Filter operators
+- [ ] v0.9 - projection pruning (column-set tracking) + anonymous rel-binding synthesis
+- [ ] v0.10 - `cypher-rs-sled` integration crate
 - [ ] v1.0 - openCypher TCK ≥ 95%; used in FFS
 
 ## ✦ Topics
