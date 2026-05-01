@@ -206,7 +206,7 @@ backend-specific) are not.
 - [x] v0.1 — lexer + parser; MATCH / WHERE / RETURN / LIMIT / SKIP, expressions
 - [x] v0.2 — OPTIONAL MATCH · ORDER BY (multi-key, ASC/DESC) · list literals · `IN`. Atomic `kw_*` rules with word-boundary checks for every keyword.
 - [x] v0.3 — semantic analyzer (variable binding · scope check · optional schema-aware label / rel-type validation via `Schema` trait)
-- [ ] v0.4 — logical plan + algebra
+- [x] v0.4 — logical plan + algebra (Empty · Scan · Expand · Filter · Project · Sort · Skip · Limit) with indented tree pretty-print
 - [ ] v0.5 — predicate pushdown, projection pruning
 - [ ] v0.5 — cost-model trait + default impl
 - [ ] v0.6 — `cypher-rs-sled` integration crate
