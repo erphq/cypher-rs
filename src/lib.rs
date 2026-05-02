@@ -22,6 +22,9 @@ pub mod plan;
 pub mod prune;
 pub mod sema;
 
+#[cfg(feature = "mcp")]
+pub mod mcp;
+
 pub use ast::*;
 pub use cost::{estimate, estimate_cost, CardinalityCostModel, CostModel, Estimate};
 pub use error::ParseError;

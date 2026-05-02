@@ -6,6 +6,21 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+- MCP (Model Context Protocol) server: new `cypher-mcp` binary and
+  `pub mod mcp` module gated behind a new `mcp` Cargo feature.
+  Library users keep the lean dep tree (no `serde_json`); MCP users
+  opt in with `--features mcp`.
+- Eight tools exposed over stdio MCP (`protocolVersion 2024-11-05`):
+  `cypher_parse`, `cypher_validate`, `cypher_analyze`, `cypher_plan`,
+  `cypher_optimize`, `cypher_explain` (full pipeline), `cypher_cost`,
+  `cypher_columns`. Each takes a `query` string; `cypher_plan` also
+  accepts an optional `optimize: bool`.
+- 20 integration tests in `tests/mcp.rs` (gated on the feature)
+  covering the protocol envelope (initialize / tools/list / ping /
+  notifications), error paths (malformed JSON, unknown method,
+  unknown tool, missing arg), and every tool's happy + sad path.
+
 ## [0.10.0] - 2026-05-01
 
 ### Added

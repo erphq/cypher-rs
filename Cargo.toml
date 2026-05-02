@@ -16,7 +16,21 @@ categories = ["parser-implementations", "database"]
 pest = "2.7"
 pest_derive = "2.7"
 thiserror = "1.0"
+serde_json = { version = "1.0", optional = true }
+
+[features]
+default = []
+# Enables the `cypher-mcp` binary and the `mcp` module: a stdio MCP
+# (Model Context Protocol) server that exposes parse / analyze / plan
+# / optimize / explain / cost / columns / validate as tools. Pulls in
+# `serde_json`. Library consumers do not need this feature.
+mcp = ["dep:serde_json"]
 
 [lib]
 name = "cypher_rs"
 path = "src/lib.rs"
+
+[[bin]]
+name = "cypher-mcp"
+path = "src/bin/cypher-mcp.rs"
+required-features = ["mcp"]
