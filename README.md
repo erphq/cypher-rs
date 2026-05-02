@@ -72,6 +72,72 @@ Limit { count: 10 }
 
 Plug your executor under that and you have a Cypher engine.
 
+## ✦ MCP Server
+
+`cypher-rs` ships a [Model Context Protocol](https://modelcontextprotocol.io/) server so any MCP-compatible agent ([Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Cursor](https://cursor.sh/), [Windsurf](https://codeium.com/windsurf), [Continue](https://continue.dev/), …) can call the front-end as tools. Useful for "is this query valid? what's its plan? what does the optimizer change? what does it cost?" without hand-rolling a CLI.
+
+The server is gated behind the `mcp` Cargo feature so the library's dep tree stays lean by default. Build the binary once:
+
+```bash
+cargo build --release --features mcp --bin cypher-mcp
+```
+
+Register it with Claude Code:
+
+```bash
+claude mcp add --scope user cypher-rs "$(pwd)/target/release/cypher-mcp"
+claude mcp list   # cypher-rs: ... - ✓ Connected
+```
+
+For Cursor / Windsurf / any other MCP client, drop this into their `mcpServers` config:
+
+```json
+{
+  "mcpServers": {
+    "cypher-rs": {
+      "command": "/abs/path/to/cypher-rs/target/release/cypher-mcp"
+    }
+  }
+}
+```
+
+The server is stateless: every call takes a `query` string. No session state, no warm-up, sub-millisecond startup.
+
+### Tools
+
+| Tool | What it does |
+|------|--------------|
+| `cypher_parse` | Parse a query, return a debug-print of the AST + clause count. |
+| `cypher_validate` | Quick yes/no: does the query parse and pass semantic analysis? |
+| `cypher_analyze` | Full semantic-analysis report: bindings introduced by MATCH / OPTIONAL MATCH plus every issue (severity / code / message). |
+| `cypher_plan` | Build the logical plan and return its tree-pretty-printed form. Pass `optimize: true` to apply the rewriter first. |
+| `cypher_optimize` | Plan before / after the optimizer runs to fixpoint, plus a `changed` flag. Useful for inspecting which rewrites fire. |
+| `cypher_explain` | **Headline tool.** Run the full pipeline (parse → analyze → plan → optimize → cost → columns) in one call. |
+| `cypher_cost` | Cost estimate using `CardinalityCostModel`. Unitless — compare plans, do not compare across models. |
+| `cypher_columns` | Output columns + required input columns for the optimized plan. |
+
+### Using it
+
+In Claude Code, after registering, talk to Claude in English:
+
+> **You:** Use cypher-rs to validate this query and explain the plan it produces:
+>
+> ```cypher
+> MATCH (u:User)-[:FOLLOWS]->(f:User)
+> WHERE u.id = $uid
+> RETURN f.name AS name, f.created_at AS joined
+> ORDER BY joined DESC
+> LIMIT 10
+> ```
+>
+> *(Claude calls `cypher_explain` and reads back the plan tree, the optimizer's rewrite, the cardinality estimate, and the column set.)*
+>
+> **You:** Why does the optimizer not push the predicate below the Sort?
+>
+> *(Claude calls `cypher_optimize` to show the before/after, then reasons over it.)*
+
+You can also force a tool ("use `cypher_validate`…") but normally describing the question in English is faster.
+
 ## ✦ What separation buys you
 
 - **No `libcypher-parser` dependency.** Pure Rust; builds anywhere Rust builds. No `bindgen`, no `pkg-config`, no system C library.
