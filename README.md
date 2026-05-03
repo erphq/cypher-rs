@@ -6,6 +6,8 @@
 
 **Lex. Parse. Validate. Plan. Storage-agnostic.**
 
+![tests](https://img.shields.io/badge/tests-130%20passing-green)
+
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![status](https://img.shields.io/badge/status-pre--v0-orange.svg)](#roadmap)
 [![rust](https://img.shields.io/badge/rust-stable-orange.svg)](#install)
