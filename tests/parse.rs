@@ -209,3 +209,71 @@ fn parses_nested_property() {
         _ => panic!(),
     }
 }
+
+#[test]
+fn parses_is_null() {
+    let q = parse("MATCH (u:User) WHERE u.email IS NULL RETURN u").unwrap();
+    assert_eq!(q.clauses.len(), 3);
+    match &q.clauses[1] {
+        Clause::Where(Expr::Unary {
+            op: UnOp::IsNull,
+            operand,
+        }) => {
+            assert!(matches!(
+                operand.as_ref(),
+                Expr::Property { key, .. } if key == "email"
+            ));
+        }
+        other => panic!("expected IS NULL, got {other:?}"),
+    }
+}
+
+#[test]
+fn parses_is_not_null() {
+    let q = parse("MATCH (u:User) WHERE u.email IS NOT NULL RETURN u").unwrap();
+    assert_eq!(q.clauses.len(), 3);
+    match &q.clauses[1] {
+        Clause::Where(Expr::Unary {
+            op: UnOp::IsNotNull,
+            operand,
+        }) => {
+            assert!(matches!(
+                operand.as_ref(),
+                Expr::Property { key, .. } if key == "email"
+            ));
+        }
+        other => panic!("expected IS NOT NULL, got {other:?}"),
+    }
+}
+
+#[test]
+fn parses_is_null_combined_with_and() {
+    let q = parse("MATCH (u:User) WHERE u.email IS NULL AND u.name IS NOT NULL RETURN u").unwrap();
+    match &q.clauses[1] {
+        Clause::Where(Expr::Binary { op: BinOp::And, .. }) => {}
+        other => panic!("expected AND at top level, got {other:?}"),
+    }
+}
+
+#[test]
+fn parses_is_null_lowercase() {
+    let q = parse("MATCH (u) WHERE u.x is null RETURN u").unwrap();
+    match &q.clauses[1] {
+        Clause::Where(Expr::Unary {
+            op: UnOp::IsNull, ..
+        }) => {}
+        other => panic!("expected IS NULL (case-insensitive), got {other:?}"),
+    }
+}
+
+#[test]
+fn parses_is_not_null_lowercase() {
+    let q = parse("MATCH (u) WHERE u.x is not null RETURN u").unwrap();
+    match &q.clauses[1] {
+        Clause::Where(Expr::Unary {
+            op: UnOp::IsNotNull,
+            ..
+        }) => {}
+        other => panic!("expected IS NOT NULL (case-insensitive), got {other:?}"),
+    }
+}

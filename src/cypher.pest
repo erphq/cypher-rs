@@ -31,13 +31,14 @@ kw_in       = @{ ^"IN"       ~ !(ASCII_ALPHANUMERIC | "_") }
 kw_true     = @{ ^"TRUE"     ~ !(ASCII_ALPHANUMERIC | "_") }
 kw_false    = @{ ^"FALSE"    ~ !(ASCII_ALPHANUMERIC | "_") }
 kw_null     = @{ ^"NULL"     ~ !(ASCII_ALPHANUMERIC | "_") }
+kw_is       = @{ ^"IS"       ~ !(ASCII_ALPHANUMERIC | "_") }
 
 reserved_kw = _{
     kw_match | kw_optional | kw_where | kw_return | kw_as
     | kw_order | kw_by | kw_asc | kw_desc
     | kw_limit | kw_skip
     | kw_and | kw_or | kw_not | kw_in
-    | kw_true | kw_false | kw_null
+    | kw_true | kw_false | kw_null | kw_is
 }
 
 ident = @{
@@ -93,11 +94,13 @@ and_expr = { not_expr ~ (kw_and ~ not_expr)* }
 not_expr = _{ not_op | cmp_expr }
 not_op   = { kw_not ~ not_expr }
 
-cmp_expr     = { add_expr ~ cmp_tail? }
-cmp_tail     = _{ cmp_op_tail | in_op_tail }
-cmp_op_tail  = { cmp_op ~ add_expr }
-in_op_tail   = { kw_in ~ add_expr }
-cmp_op       = { "<>" | "<=" | ">=" | "=" | "<" | ">" }
+cmp_expr         = { add_expr ~ cmp_tail? }
+cmp_tail         = _{ cmp_op_tail | in_op_tail | is_not_null_tail | is_null_tail }
+cmp_op_tail      = { cmp_op ~ add_expr }
+in_op_tail       = { kw_in ~ add_expr }
+is_null_tail     = { kw_is ~ kw_null }
+is_not_null_tail = { kw_is ~ kw_not ~ kw_null }
+cmp_op           = { "<>" | "<=" | ">=" | "=" | "<" | ">" }
 
 add_expr = { mul_expr ~ (add_op ~ mul_expr)* }
 add_op   = { "+" | "-" }
