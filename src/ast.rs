@@ -130,4 +130,6 @@ pub enum BinOp {
 pub enum UnOp {
     Not,
     Neg,
+    IsNull,
+    IsNotNull,
 }

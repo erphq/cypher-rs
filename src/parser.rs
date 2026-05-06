@@ -405,6 +405,14 @@ fn walk_cmp(pair: Pair<Rule>) -> Result<Expr, ParseError> {
                 rhs: Box::new(rhs),
             })
         }
+        Rule::is_null_tail => Ok(Expr::Unary {
+            op: UnOp::IsNull,
+            operand: Box::new(lhs),
+        }),
+        Rule::is_not_null_tail => Ok(Expr::Unary {
+            op: UnOp::IsNotNull,
+            operand: Box::new(lhs),
+        }),
         r => Err(unexpected("cmp tail", r)),
     }
 }
@@ -469,6 +477,7 @@ fn is_kw(p: &Pair<Rule>) -> bool {
             | Rule::kw_true
             | Rule::kw_false
             | Rule::kw_null
+            | Rule::kw_is
     )
 }
 
