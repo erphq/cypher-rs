@@ -180,3 +180,107 @@ fn cartesian_with_filter_and_unrelated_other_side() {
         _ => panic!(),
     }
 }
+
+// ---- push filter through Expand -----------------------------------------
+
+#[test]
+fn pushes_filter_on_src_through_expand() {
+    // Filter references only `u` (the scan-bound var, which is the
+    // expand's src). The filter should move below the Expand so that
+    // Expand only processes rows where u.id = 1.
+    let p = parse_plan_optimize("MATCH (u:User)-[:FOLLOWS]->(f:User) WHERE u.id = 1 RETURN f");
+    // Expected shape: Project > Expand > Filter > Scan
+    match p {
+        Plan::Project { input, .. } => match *input {
+            Plan::Expand { input: ei, .. } => {
+                assert!(
+                    matches!(*ei, Plan::Filter { .. }),
+                    "expected Filter pushed below Expand, got {ei:?}"
+                );
+            }
+            other => panic!("expected Expand under Project, got {other:?}"),
+        },
+        other => panic!("expected Project root, got {other:?}"),
+    }
+}
+
+#[test]
+fn does_not_push_filter_on_dst_through_expand() {
+    // Filter references `f` (the expand dst). Must stay above the Expand.
+    let p =
+        parse_plan_optimize("MATCH (u:User)-[:FOLLOWS]->(f:User) WHERE f.role = 'admin' RETURN f");
+    match p {
+        Plan::Project { input, .. } => match *input {
+            Plan::Filter { input: i2, .. } => {
+                assert!(
+                    matches!(*i2, Plan::Expand { .. }),
+                    "expected Filter above Expand, got {i2:?}"
+                );
+            }
+            other => panic!("expected Filter over Expand, got {other:?}"),
+        },
+        other => panic!("expected Project root, got {other:?}"),
+    }
+}
+
+#[test]
+fn does_not_push_filter_on_rel_var_through_expand() {
+    // Filter references `r` (the expand rel_var). Must stay above the Expand.
+    let p = parse_plan_optimize("MATCH (u:User)-[r:KNOWS]->(f:User) WHERE r.since > 2020 RETURN f");
+    match p {
+        Plan::Project { input, .. } => match *input {
+            Plan::Filter { input: i2, .. } => {
+                assert!(
+                    matches!(*i2, Plan::Expand { .. }),
+                    "expected Filter above Expand, got {i2:?}"
+                );
+            }
+            other => panic!("expected Filter over Expand, got {other:?}"),
+        },
+        other => panic!("expected Project root, got {other:?}"),
+    }
+}
+
+#[test]
+fn push_through_expand_improves_cost() {
+    // With the filter pushed before the expand, fewer rows enter the
+    // expand operator, so the estimated cost must be lower.
+    let q = parse("MATCH (u:User)-[:FOLLOWS]->(f:User) WHERE u.id = 1 RETURN f").unwrap();
+    let raw = plan(&q).unwrap();
+    let opt = optimize(raw.clone());
+    let m = CardinalityCostModel::default()
+        .with_label("User", 10_000.0)
+        .with_rel("FOLLOWS", 50.0);
+    let raw_cost = estimate_cost(&raw, &m);
+    let opt_cost = estimate_cost(&opt, &m);
+    assert!(
+        opt_cost < raw_cost,
+        "expected expand-push to lower cost: raw={raw_cost} opt={opt_cost}"
+    );
+}
+
+#[test]
+fn push_through_chained_expands_reaches_scan() {
+    // Two hops: (u)-[:R]->(v)-[:S]->(w) WHERE u.id = 1.
+    // Filter should push all the way through both Expands to the Scan.
+    let p = parse_plan_optimize("MATCH (u:User)-[:R]->(v)-[:S]->(w) WHERE u.id = 1 RETURN w");
+    // Expected: Project > Expand(S) > Expand(R) > Filter > Scan
+    fn find_filter_depth(p: &Plan, depth: usize) -> Option<usize> {
+        match p {
+            Plan::Filter { .. } => Some(depth),
+            Plan::Project { input, .. }
+            | Plan::Expand { input, .. }
+            | Plan::Sort { input, .. }
+            | Plan::Limit { input, .. }
+            | Plan::Skip { input, .. } => find_filter_depth(input, depth + 1),
+            _ => None,
+        }
+    }
+    let d = find_filter_depth(&p, 0).expect("expected a Filter in the plan");
+    // Depth 0 = root (Project), 1 = outer Expand, 2 = inner Expand,
+    // 3 = Filter, 4 = Scan.
+    assert!(
+        d >= 3,
+        "expected filter pushed past both Expands (depth >= 3), got depth {d}"
+    );
+}
