@@ -1,19 +1,22 @@
-//! Logical-plan optimizer (v0.6).
+//! Logical-plan optimizer (v0.6 / v0.11).
 //!
-//! v0.6 ships a single rewrite rule: **predicate pushdown**. A
-//! `Filter` is moved as far down the tree as its predicate's variable
-//! references allow, on the principle that filtering early shrinks
-//! the rows that flow through later operators.
+//! Predicate pushdown moves a `Filter` as far down the tree as its
+//! predicate's variable references allow, on the principle that
+//! filtering early shrinks the rows that flow through later operators.
 //!
 //! Push directions:
-//!   - `Filter(Project(input, exprs), pred)` → `Project(Filter(input, pred), exprs)`
+//!   - `Filter(Project(input, exprs), pred)` -> `Project(Filter(input, pred), exprs)`
 //!     when `pred` doesn't reference any project alias.
-//!   - `Filter(Sort(input, keys), pred)` → `Sort(Filter(input, pred), keys)`
+//!   - `Filter(Sort(input, keys), pred)` -> `Sort(Filter(input, pred), keys)`
 //!     (always safe; predicate evaluation doesn't depend on order).
-//!   - `Filter(Cartesian(l, r), pred)` → `Cartesian(Filter(l, pred), r)`
+//!   - `Filter(Cartesian(l, r), pred)` -> `Cartesian(Filter(l, pred), r)`
 //!     (or symmetric) when `pred` only references vars bound on one
-//!     side. The other variables would be unbound on that side and
-//!     the optimizer can prove the filter belongs there.
+//!     side.
+//!   - `Filter(Expand(input, ..., rel_var, dst), pred)` ->
+//!     `Expand(Filter(input, pred), ..., rel_var, dst)` when `pred`
+//!     doesn't reference `rel_var` or `dst` (the vars Expand
+//!     introduces). This avoids expanding rows that will be filtered
+//!     immediately after.
 //!
 //! Push *blockers*: we don't push through `Limit`, `Skip`, or
 //! `Optional`, because doing so changes which rows are seen.
@@ -141,6 +144,48 @@ fn try_push_filter(input: Plan, pred: Expr) -> Plan {
             } else {
                 Plan::Filter {
                     input: Box::new(Plan::Cartesian { left, right }),
+                    pred,
+                }
+            }
+        }
+        Plan::Expand {
+            input: ei,
+            src,
+            rel_var,
+            rel_types,
+            direction,
+            dst,
+            dst_label,
+        } => {
+            // Push below the Expand when pred doesn't reference the
+            // vars Expand introduces (rel_var, dst). Those vars don't
+            // exist in the input rows, so pushing is safe.
+            let expand_introduces: HashSet<String> = [rel_var.as_deref(), dst.as_deref()]
+                .into_iter()
+                .flatten()
+                .map(str::to_owned)
+                .collect();
+            if used_vars(&pred).is_disjoint(&expand_introduces) {
+                Plan::Expand {
+                    input: Box::new(try_push_filter(*ei, pred)),
+                    src,
+                    rel_var,
+                    rel_types,
+                    direction,
+                    dst,
+                    dst_label,
+                }
+            } else {
+                Plan::Filter {
+                    input: Box::new(Plan::Expand {
+                        input: ei,
+                        src,
+                        rel_var,
+                        rel_types,
+                        direction,
+                        dst,
+                        dst_label,
+                    }),
                     pred,
                 }
             }
