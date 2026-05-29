@@ -34,9 +34,9 @@ What's missing is a pure-Rust, library-grade, MIT-licensed Cypher front-end with
 | Parser | concrete syntax tree | partial (v0.2: MATCH/OPTIONAL MATCH/WHERE/RETURN/ORDER BY/LIMIT/SKIP, list literals, IN) |
 | AST lowering | symbol table, variable binding | partial (v0.3) |
 | Semantic analysis | scope / label / rel-type checks | partial (v0.3 - type checks deferred) |
-| Logical plan | algebra: scan · expand · filter · project · agg | planned |
-| Plan rewriter | predicate pushdown, projection pruning | planned |
-| Cost model | pluggable trait; default = cardinality-only | planned |
+| Logical plan | algebra: scan · expand · filter · project · agg | partial (v0.4-v0.5) |
+| Plan rewriter | predicate pushdown, projection-pruning analysis | partial (v0.6 pushdown, v0.10 prune analysis) |
+| Cost model | pluggable trait; default = cardinality-only | partial (v0.7) |
 | Diagnostics | `miette`-powered span errors | planned |
 
 Not in scope: physical plan, storage adapter, executor, network
