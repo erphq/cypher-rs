@@ -92,14 +92,24 @@ pub fn analyze_with<S: Schema + ?Sized>(query: &Query, schema: &S) -> AnalysisRe
 
 fn collect_bindings(query: &Query, out: &mut HashSet<String>) {
     for clause in &query.clauses {
-        if let Clause::Match(m) = clause {
-            for p in &m.patterns {
-                add_node_binding(&p.anchor, out);
-                for chain in &p.chain {
-                    add_rel_binding(&chain.rel, out);
-                    add_node_binding(&chain.node, out);
+        match clause {
+            Clause::Match(m) => {
+                for p in &m.patterns {
+                    add_node_binding(&p.anchor, out);
+                    for chain in &p.chain {
+                        add_rel_binding(&chain.rel, out);
+                        add_node_binding(&chain.node, out);
+                    }
                 }
             }
+            Clause::With(w) => {
+                for item in &w.items {
+                    if let Some(alias) = &item.alias {
+                        out.insert(alias.clone());
+                    }
+                }
+            }
+            _ => {}
         }
     }
 }
@@ -133,7 +143,7 @@ fn check_clause<S: Schema + ?Sized>(
             }
         }
         Clause::Where(e) => check_expr(e, bindings, issues),
-        Clause::Return(r) => {
+        Clause::Return(r) | Clause::With(r) => {
             for item in &r.items {
                 check_expr(&item.expr, bindings, issues);
             }
