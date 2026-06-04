@@ -144,6 +144,20 @@ pub fn plan(query: &Query) -> Result<Plan, PlanError> {
                     pred: e.clone(),
                 };
             }
+            Clause::With(r) => {
+                let exprs = r
+                    .items
+                    .iter()
+                    .map(|i| ProjectExpr {
+                        expr: i.expr.clone(),
+                        alias: i.alias.clone(),
+                    })
+                    .collect();
+                plan = Plan::Project {
+                    input: Box::new(plan),
+                    exprs,
+                };
+            }
             Clause::Return(r) => {
                 project = Some(
                     r.items

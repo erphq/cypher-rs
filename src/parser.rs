@@ -24,6 +24,7 @@ pub fn parse(input: &str) -> Result<Query, ParseError> {
             Rule::EOI => continue,
             Rule::match_clause => clauses.push(Clause::Match(walk_match(inner)?)),
             Rule::where_clause => clauses.push(Clause::Where(walk_clause_expr(inner)?)),
+            Rule::with_clause => clauses.push(Clause::With(walk_return(inner)?)),
             Rule::return_clause => clauses.push(Clause::Return(walk_return(inner)?)),
             Rule::order_by_clause => clauses.push(Clause::OrderBy(walk_order_by(inner)?)),
             Rule::limit_clause => clauses.push(Clause::Limit(walk_clause_expr(inner)?)),
@@ -470,6 +471,7 @@ fn is_kw(p: &Pair<Rule>) -> bool {
             | Rule::kw_desc
             | Rule::kw_limit
             | Rule::kw_skip
+            | Rule::kw_with
             | Rule::kw_and
             | Rule::kw_or
             | Rule::kw_not
