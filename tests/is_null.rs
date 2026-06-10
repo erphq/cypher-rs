@@ -91,8 +91,7 @@ fn is_not_null_case_insensitive() {
 #[test]
 fn is_null_combined_with_and() {
     // IS NULL binds tighter than AND (it is a postfix tail on cmp_expr).
-    let q =
-        parse("MATCH (u) WHERE u.active = true AND u.email IS NULL RETURN u").unwrap();
+    let q = parse("MATCH (u) WHERE u.active = true AND u.email IS NULL RETURN u").unwrap();
     match &q.clauses[1] {
         Clause::Where(Expr::Binary {
             op: BinOp::And,
@@ -100,7 +99,13 @@ fn is_null_combined_with_and() {
             ..
         }) => {
             assert!(
-                matches!(rhs.as_ref(), Expr::Unary { op: UnOp::IsNull, .. }),
+                matches!(
+                    rhs.as_ref(),
+                    Expr::Unary {
+                        op: UnOp::IsNull,
+                        ..
+                    }
+                ),
                 "expected IS NULL as rhs of AND, got {rhs:?}"
             );
         }
@@ -223,8 +228,7 @@ fn optimizer_keeps_is_null_filter_above_expand_for_dst_var() {
 fn optimizer_pushes_is_null_into_correct_cartesian_side() {
     // Predicate references `u` only, which is bound by the left Scan.
     // The filter should push into the left side of the Cartesian.
-    let q =
-        parse("MATCH (u:User), (v:Post) WHERE u.email IS NULL RETURN u, v").unwrap();
+    let q = parse("MATCH (u:User), (v:Post) WHERE u.email IS NULL RETURN u, v").unwrap();
     let raw = plan(&q).unwrap();
     let p = optimize(raw);
     match p {
