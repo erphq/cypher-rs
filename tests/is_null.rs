@@ -74,7 +74,9 @@ fn parses_is_not_null_on_bare_variable() {
 fn is_null_case_insensitive() {
     let q = parse("MATCH (u) WHERE u.name is null RETURN u").unwrap();
     match &q.clauses[1] {
-        Clause::Where(Expr::Unary { op: UnOp::IsNull, .. }) => {}
+        Clause::Where(Expr::Unary {
+            op: UnOp::IsNull, ..
+        }) => {}
         other => panic!("expected IS NULL (lowercase), got {other:?}"),
     }
 }
@@ -83,7 +85,10 @@ fn is_null_case_insensitive() {
 fn is_not_null_case_insensitive() {
     let q = parse("MATCH (u) WHERE u.name is not null RETURN u").unwrap();
     match &q.clauses[1] {
-        Clause::Where(Expr::Unary { op: UnOp::IsNotNull, .. }) => {}
+        Clause::Where(Expr::Unary {
+            op: UnOp::IsNotNull,
+            ..
+        }) => {}
         other => panic!("expected IS NOT NULL (lowercase), got {other:?}"),
     }
 }
@@ -115,8 +120,7 @@ fn is_null_combined_with_and() {
 
 #[test]
 fn is_not_null_combined_with_or() {
-    let q =
-        parse("MATCH (u) WHERE u.email IS NOT NULL OR u.phone IS NOT NULL RETURN u").unwrap();
+    let q = parse("MATCH (u) WHERE u.email IS NOT NULL OR u.phone IS NOT NULL RETURN u").unwrap();
     match &q.clauses[1] {
         Clause::Where(Expr::Binary { op: BinOp::Or, .. }) => {}
         other => panic!("expected OR combining two IS NOT NULL predicates, got {other:?}"),
@@ -184,8 +188,7 @@ fn planner_produces_filter_for_is_not_null() {
 fn optimizer_pushes_is_null_filter_through_expand() {
     // Predicate references `u` (the src). Expand does not introduce `u`,
     // so the filter pushes below the Expand.
-    let q =
-        parse("MATCH (u:User)-[:FOLLOWS]->(f:User) WHERE u.email IS NULL RETURN f").unwrap();
+    let q = parse("MATCH (u:User)-[:FOLLOWS]->(f:User) WHERE u.email IS NULL RETURN f").unwrap();
     let raw = plan(&q).unwrap();
     let p = optimize(raw);
     match p {
@@ -206,8 +209,7 @@ fn optimizer_pushes_is_null_filter_through_expand() {
 fn optimizer_keeps_is_null_filter_above_expand_for_dst_var() {
     // Predicate references `f` (the dst). Expand introduces `f`,
     // so the filter must stay above the Expand.
-    let q =
-        parse("MATCH (u:User)-[:FOLLOWS]->(f:User) WHERE f.email IS NULL RETURN f").unwrap();
+    let q = parse("MATCH (u:User)-[:FOLLOWS]->(f:User) WHERE f.email IS NULL RETURN f").unwrap();
     let raw = plan(&q).unwrap();
     let p = optimize(raw);
     match p {
