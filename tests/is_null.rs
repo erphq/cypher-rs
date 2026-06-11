@@ -1,9 +1,3 @@
-//! Tests for IS NULL and IS NOT NULL predicates.
-//!
-//! Both operators are wired through grammar, parser, AST
-//! (UnOp::IsNull / UnOp::IsNotNull), sema, and optimizer but had no
-//! dedicated test coverage before this file.
-
 use cypher_rs::*;
 
 // ---- parsing ------------------------------------------------------------
