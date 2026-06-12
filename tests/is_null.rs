@@ -1,7 +1,6 @@
 use cypher_rs::*;
 
 // ---- parsing ------------------------------------------------------------
-
 #[test]
 fn parses_is_null_on_property() {
     let q = parse("MATCH (u) WHERE u.email IS NULL RETURN u").unwrap();
@@ -122,7 +121,6 @@ fn is_not_null_combined_with_or() {
 }
 
 // ---- semantic analysis --------------------------------------------------
-
 #[test]
 fn sema_accepts_is_null_on_bound_variable() {
     let q = parse("MATCH (u) WHERE u.email IS NULL RETURN u").unwrap();
@@ -159,7 +157,6 @@ fn sema_flags_unbound_variable_inside_is_not_null() {
 }
 
 // ---- planning -----------------------------------------------------------
-
 #[test]
 fn planner_produces_filter_for_is_null() {
     let q = parse("MATCH (u:User) WHERE u.email IS NULL RETURN u").unwrap();
@@ -177,7 +174,6 @@ fn planner_produces_filter_for_is_not_null() {
 }
 
 // ---- optimizer pushdown -------------------------------------------------
-
 #[test]
 fn optimizer_pushes_is_null_filter_through_expand() {
     // Predicate references `u` (the src). Expand does not introduce `u`,
