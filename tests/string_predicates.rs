@@ -5,8 +5,7 @@ use cypher_rs::*;
 
 #[test]
 fn parses_starts_with() {
-    let q =
-        parse("MATCH (u:User) WHERE u.name STARTS WITH 'Alice' RETURN u").unwrap();
+    let q = parse("MATCH (u:User) WHERE u.name STARTS WITH 'Alice' RETURN u").unwrap();
     match &q.clauses[1] {
         Clause::Where(Expr::Binary {
             op: BinOp::StartsWith,
@@ -14,9 +13,7 @@ fn parses_starts_with() {
             rhs,
         }) => {
             assert!(matches!(lhs.as_ref(), Expr::Property { key, .. } if key == "name"));
-            assert!(
-                matches!(rhs.as_ref(), Expr::Literal(Literal::String(s)) if s == "Alice")
-            );
+            assert!(matches!(rhs.as_ref(), Expr::Literal(Literal::String(s)) if s == "Alice"));
         }
         other => panic!("expected STARTS WITH, got {other:?}"),
     }
@@ -24,8 +21,7 @@ fn parses_starts_with() {
 
 #[test]
 fn parses_ends_with() {
-    let q =
-        parse("MATCH (u:User) WHERE u.email ENDS WITH '@example.com' RETURN u").unwrap();
+    let q = parse("MATCH (u:User) WHERE u.email ENDS WITH '@example.com' RETURN u").unwrap();
     match &q.clauses[1] {
         Clause::Where(Expr::Binary {
             op: BinOp::EndsWith,
@@ -51,9 +47,7 @@ fn parses_contains() {
             rhs,
         }) => {
             assert!(matches!(lhs.as_ref(), Expr::Property { key, .. } if key == "body"));
-            assert!(
-                matches!(rhs.as_ref(), Expr::Literal(Literal::String(s)) if s == "keyword")
-            );
+            assert!(matches!(rhs.as_ref(), Expr::Literal(Literal::String(s)) if s == "keyword"));
         }
         other => panic!("expected CONTAINS, got {other:?}"),
     }
@@ -97,10 +91,8 @@ fn contains_keyword_is_case_insensitive() {
 
 #[test]
 fn starts_with_combined_with_and() {
-    let q = parse(
-        "MATCH (u:User) WHERE u.name STARTS WITH 'Alice' AND u.age > 18 RETURN u",
-    )
-    .unwrap();
+    let q =
+        parse("MATCH (u:User) WHERE u.name STARTS WITH 'Alice' AND u.age > 18 RETURN u").unwrap();
     match &q.clauses[1] {
         Clause::Where(Expr::Binary {
             op: BinOp::And,
@@ -108,7 +100,13 @@ fn starts_with_combined_with_and() {
             ..
         }) => {
             assert!(
-                matches!(lhs.as_ref(), Expr::Binary { op: BinOp::StartsWith, .. }),
+                matches!(
+                    lhs.as_ref(),
+                    Expr::Binary {
+                        op: BinOp::StartsWith,
+                        ..
+                    }
+                ),
                 "expected STARTS WITH as lhs of AND, got {lhs:?}"
             );
         }
@@ -118,18 +116,29 @@ fn starts_with_combined_with_and() {
 
 #[test]
 fn contains_combined_with_or() {
-    let q = parse(
-        "MATCH (p:Post) WHERE p.title CONTAINS 'Rust' OR p.title CONTAINS 'Cargo' RETURN p",
-    )
-    .unwrap();
+    let q =
+        parse("MATCH (p:Post) WHERE p.title CONTAINS 'Rust' OR p.title CONTAINS 'Cargo' RETURN p")
+            .unwrap();
     match &q.clauses[1] {
         Clause::Where(Expr::Binary {
             op: BinOp::Or,
             lhs,
             rhs,
         }) => {
-            assert!(matches!(lhs.as_ref(), Expr::Binary { op: BinOp::Contains, .. }));
-            assert!(matches!(rhs.as_ref(), Expr::Binary { op: BinOp::Contains, .. }));
+            assert!(matches!(
+                lhs.as_ref(),
+                Expr::Binary {
+                    op: BinOp::Contains,
+                    ..
+                }
+            ));
+            assert!(matches!(
+                rhs.as_ref(),
+                Expr::Binary {
+                    op: BinOp::Contains,
+                    ..
+                }
+            ));
         }
         other => panic!("expected OR at top level, got {other:?}"),
     }
@@ -156,8 +165,7 @@ fn string_predicate_rhs_can_be_param() {
 #[test]
 fn string_predicate_in_full_pipeline_produces_filter() {
     let q =
-        parse("MATCH (u:User) WHERE u.email ENDS WITH '@corp.com' RETURN u.name LIMIT 10")
-            .unwrap();
+        parse("MATCH (u:User) WHERE u.email ENDS WITH '@corp.com' RETURN u.name LIMIT 10").unwrap();
     let p = plan(&q).unwrap();
     let s = format!("{p}");
     assert!(s.contains("Limit"), "expected Limit in plan: {s}");
@@ -175,7 +183,13 @@ fn not_starts_with() {
             operand,
         }) => {
             assert!(
-                matches!(operand.as_ref(), Expr::Binary { op: BinOp::StartsWith, .. }),
+                matches!(
+                    operand.as_ref(),
+                    Expr::Binary {
+                        op: BinOp::StartsWith,
+                        ..
+                    }
+                ),
                 "expected NOT wrapping STARTS WITH, got {operand:?}"
             );
         }
