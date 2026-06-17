@@ -239,7 +239,7 @@ fn walk_map_entries(pair: Pair<Rule>) -> Result<Vec<(String, Expr)>, ParseError>
 
 fn walk_expr(pair: Pair<Rule>) -> Result<Expr, ParseError> {
     match pair.as_rule() {
-        Rule::expr => walk_expr(first_inner(pair, "expr")?)?,
+        Rule::expr => walk_expr(first_inner(pair, "expr")?),
         Rule::or_expr => walk_left_assoc_no_op(pair, BinOp::Or),
         Rule::and_expr => walk_left_assoc_no_op(pair, BinOp::And),
         Rule::not_op => {
@@ -315,7 +315,7 @@ fn walk_expr(pair: Pair<Rule>) -> Result<Expr, ParseError> {
     }
 }
 
-/// `or_expr` and `and_expr` interleave operand · kw_or/kw_and · operand · ...
+/// `or_expr` and `and_expr` interleave operand - kw_or/kw_and - operand - ...
 /// We walk operands and skip the keyword tokens.
 fn walk_left_assoc_no_op(pair: Pair<Rule>, op: BinOp) -> Result<Expr, ParseError> {
     let mut acc: Option<Expr> = None;
