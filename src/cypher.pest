@@ -1,6 +1,7 @@
 // Minimal openCypher subset for cypher-rs (v0.1: MATCH/WHERE/RETURN/LIMIT/SKIP;
 // v0.2: OPTIONAL MATCH, ORDER BY, list literals, IN;
-// v0.11: WITH clause).
+// v0.11: WITH clause;
+// v0.12: STARTS WITH, ENDS WITH, CONTAINS string predicates).
 //
 // Whitespace is skipped between non-atomic rules. Atomic rules
 // (those marked `@`) preserve internal whitespace.
@@ -34,6 +35,9 @@ kw_false    = @{ ^"FALSE"    ~ !(ASCII_ALPHANUMERIC | "_") }
 kw_null     = @{ ^"NULL"     ~ !(ASCII_ALPHANUMERIC | "_") }
 kw_is       = @{ ^"IS"       ~ !(ASCII_ALPHANUMERIC | "_") }
 kw_with     = @{ ^"WITH"     ~ !(ASCII_ALPHANUMERIC | "_") }
+kw_starts   = @{ ^"STARTS"   ~ !(ASCII_ALPHANUMERIC | "_") }
+kw_ends     = @{ ^"ENDS"     ~ !(ASCII_ALPHANUMERIC | "_") }
+kw_contains = @{ ^"CONTAINS" ~ !(ASCII_ALPHANUMERIC | "_") }
 
 reserved_kw = _{
     kw_match | kw_optional | kw_where | kw_return | kw_as
@@ -41,6 +45,7 @@ reserved_kw = _{
     | kw_limit | kw_skip | kw_with
     | kw_and | kw_or | kw_not | kw_in
     | kw_true | kw_false | kw_null | kw_is
+    | kw_starts | kw_ends | kw_contains
 }
 
 ident = @{
@@ -98,9 +103,12 @@ not_expr = _{ not_op | cmp_expr }
 not_op   = { kw_not ~ not_expr }
 
 cmp_expr         = { add_expr ~ cmp_tail? }
-cmp_tail         = _{ cmp_op_tail | in_op_tail | is_not_null_tail | is_null_tail }
+cmp_tail         = _{ cmp_op_tail | in_op_tail | starts_with_tail | ends_with_tail | contains_tail | is_not_null_tail | is_null_tail }
 cmp_op_tail      = { cmp_op ~ add_expr }
 in_op_tail       = { kw_in ~ add_expr }
+starts_with_tail = { kw_starts ~ kw_with ~ add_expr }
+ends_with_tail   = { kw_ends ~ kw_with ~ add_expr }
+contains_tail    = { kw_contains ~ add_expr }
 is_null_tail     = { kw_is ~ kw_null }
 is_not_null_tail = { kw_is ~ kw_not ~ kw_null }
 cmp_op           = { "<>" | "<=" | ">=" | "=" | "<" | ">" }
