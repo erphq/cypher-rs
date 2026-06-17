@@ -239,7 +239,7 @@ fn walk_map_entries(pair: Pair<Rule>) -> Result<Vec<(String, Expr)>, ParseError>
 
 fn walk_expr(pair: Pair<Rule>) -> Result<Expr, ParseError> {
     match pair.as_rule() {
-        Rule::expr => walk_expr(first_inner(pair, "expr")?),
+        Rule::expr => walk_expr(first_inner(pair, "expr")?)?,
         Rule::or_expr => walk_left_assoc_no_op(pair, BinOp::Or),
         Rule::and_expr => walk_left_assoc_no_op(pair, BinOp::And),
         Rule::not_op => {
@@ -315,7 +315,7 @@ fn walk_expr(pair: Pair<Rule>) -> Result<Expr, ParseError> {
     }
 }
 
-/// `or_expr` and `and_expr` interleave operand · kw_or/kw_and · operand · …
+/// `or_expr` and `and_expr` interleave operand · kw_or/kw_and · operand · ...
 /// We walk operands and skip the keyword tokens.
 fn walk_left_assoc_no_op(pair: Pair<Rule>, op: BinOp) -> Result<Expr, ParseError> {
     let mut acc: Option<Expr> = None;
@@ -406,6 +406,33 @@ fn walk_cmp(pair: Pair<Rule>) -> Result<Expr, ParseError> {
                 rhs: Box::new(rhs),
             })
         }
+        Rule::starts_with_tail => {
+            let rhs_pair = first_operand(tail, "starts_with_tail")?;
+            let rhs = walk_expr(rhs_pair)?;
+            Ok(Expr::Binary {
+                op: BinOp::StartsWith,
+                lhs: Box::new(lhs),
+                rhs: Box::new(rhs),
+            })
+        }
+        Rule::ends_with_tail => {
+            let rhs_pair = first_operand(tail, "ends_with_tail")?;
+            let rhs = walk_expr(rhs_pair)?;
+            Ok(Expr::Binary {
+                op: BinOp::EndsWith,
+                lhs: Box::new(lhs),
+                rhs: Box::new(rhs),
+            })
+        }
+        Rule::contains_tail => {
+            let rhs_pair = first_operand(tail, "contains_tail")?;
+            let rhs = walk_expr(rhs_pair)?;
+            Ok(Expr::Binary {
+                op: BinOp::Contains,
+                lhs: Box::new(lhs),
+                rhs: Box::new(rhs),
+            })
+        }
         Rule::is_null_tail => Ok(Expr::Unary {
             op: UnOp::IsNull,
             operand: Box::new(lhs),
@@ -480,6 +507,9 @@ fn is_kw(p: &Pair<Rule>) -> bool {
             | Rule::kw_false
             | Rule::kw_null
             | Rule::kw_is
+            | Rule::kw_starts
+            | Rule::kw_ends
+            | Rule::kw_contains
     )
 }
 

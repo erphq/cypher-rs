@@ -127,6 +127,9 @@ pub enum BinOp {
     Div,
     Mod,
     In,
+    StartsWith,
+    EndsWith,
+    Contains,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
