@@ -96,6 +96,11 @@ fn descend(plan: Plan) -> Plan {
         Plan::Distinct { input } => Plan::Distinct {
             input: Box::new(pass(*input)),
         },
+        Plan::Unwind { input, expr, var } => Plan::Unwind {
+            input: Box::new(pass(*input)),
+            expr,
+            var,
+        },
         leaf @ (Plan::Empty | Plan::Scan { .. }) => leaf,
     }
 }
@@ -291,5 +296,9 @@ fn walk_bound(plan: &Plan, out: &mut HashSet<String>) {
             walk_bound(optional, out);
         }
         Plan::Distinct { input } => walk_bound(input, out),
+        Plan::Unwind { input, var, .. } => {
+            walk_bound(input, out);
+            out.insert(var.clone());
+        }
     }
 }
