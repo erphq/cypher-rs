@@ -25,6 +25,7 @@ pub fn parse(input: &str) -> Result<Query, ParseError> {
             Rule::match_clause => clauses.push(Clause::Match(walk_match(inner)?)),
             Rule::where_clause => clauses.push(Clause::Where(walk_clause_expr(inner)?)),
             Rule::with_clause => clauses.push(Clause::With(walk_return(inner)?)),
+            Rule::unwind_clause => clauses.push(walk_unwind(inner)?),
             Rule::return_clause => clauses.push(Clause::Return(walk_return(inner)?)),
             Rule::order_by_clause => clauses.push(Clause::OrderBy(walk_order_by(inner)?)),
             Rule::limit_clause => clauses.push(Clause::Limit(walk_clause_expr(inner)?)),
@@ -40,6 +41,27 @@ pub fn parse(input: &str) -> Result<Query, ParseError> {
 fn walk_clause_expr(pair: Pair<Rule>) -> Result<Expr, ParseError> {
     let inner = first_operand(pair, "clause expr")?;
     walk_expr(inner)
+}
+
+fn walk_unwind(pair: Pair<Rule>) -> Result<Clause, ParseError> {
+    // Children: kw_unwind, expr, kw_as, ident. Skip all keyword tokens.
+    let mut expr_opt: Option<Expr> = None;
+    let mut var_opt: Option<String> = None;
+    for inner in pair.into_inner() {
+        if is_kw(&inner) {
+            continue;
+        }
+        if expr_opt.is_none() {
+            expr_opt = Some(walk_expr(inner)?);
+        } else {
+            var_opt = Some(inner.as_str().to_string());
+        }
+    }
+    let expr =
+        expr_opt.ok_or_else(|| ParseError::Unexpected("unwind_clause: missing expr".into()))?;
+    let var =
+        var_opt.ok_or_else(|| ParseError::Unexpected("unwind_clause: missing AS ident".into()))?;
+    Ok(Clause::Unwind { expr, var })
 }
 
 fn walk_match(pair: Pair<Rule>) -> Result<MatchClause, ParseError> {
@@ -499,6 +521,7 @@ fn is_kw(p: &Pair<Rule>) -> bool {
             | Rule::kw_limit
             | Rule::kw_skip
             | Rule::kw_with
+            | Rule::kw_unwind
             | Rule::kw_and
             | Rule::kw_or
             | Rule::kw_not

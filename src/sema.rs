@@ -109,6 +109,9 @@ fn collect_bindings(query: &Query, out: &mut HashSet<String>) {
                     }
                 }
             }
+            Clause::Unwind { var, .. } => {
+                out.insert(var.clone());
+            }
             _ => {}
         }
     }
@@ -154,6 +157,7 @@ fn check_clause<S: Schema + ?Sized>(
             }
         }
         Clause::Limit(e) | Clause::Skip(e) => check_expr(e, bindings, issues),
+        Clause::Unwind { expr, .. } => check_expr(expr, bindings, issues),
     }
 }
 

@@ -13,6 +13,12 @@ pub enum Clause {
     /// Pipeline break: project the current row set and pass it to the
     /// next clause. Semantics mirror RETURN but the query continues.
     With(ReturnClause),
+    /// Unnest a list expression into one row per element, binding each
+    /// element to `var`. Equivalent to SQL's UNNEST or lateral cross-apply.
+    Unwind {
+        expr: Expr,
+        var: String,
+    },
     OrderBy(Vec<OrderItem>),
     Limit(Expr),
     Skip(Expr),

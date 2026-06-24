@@ -93,6 +93,11 @@ fn descend(plan: Plan) -> Plan {
             input: Box::new(pass(*input)),
             optional: Box::new(pass(*optional)),
         },
+        Plan::Unwind { input, expr, var } => Plan::Unwind {
+            input: Box::new(pass(*input)),
+            expr,
+            var,
+        },
         leaf @ (Plan::Empty | Plan::Scan { .. }) => leaf,
     }
 }
@@ -280,6 +285,10 @@ fn walk_bound(plan: &Plan, out: &mut HashSet<String>) {
         Plan::Optional { input, optional } => {
             walk_bound(input, out);
             walk_bound(optional, out);
+        }
+        Plan::Unwind { input, var, .. } => {
+            walk_bound(input, out);
+            out.insert(var.clone());
         }
     }
 }

@@ -225,6 +225,20 @@ pub fn estimate<M: CostModel + ?Sized>(plan: &Plan, model: &M) -> Estimate {
                 cost: i.cost + o.cost + i.cardinality,
             }
         }
+        Plan::Unwind { input, expr, .. } => {
+            let inp = estimate(input, model);
+            // Use the list literal length when it's statically known;
+            // default to 10 as a conservative estimate otherwise.
+            let list_len = match expr {
+                Expr::List(items) => items.len() as f64,
+                _ => 10.0,
+            };
+            let card = inp.cardinality * list_len;
+            Estimate {
+                cardinality: card,
+                cost: inp.cost + card,
+            }
+        }
     }
 }
 

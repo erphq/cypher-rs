@@ -69,6 +69,15 @@ pub enum Plan {
         input: Box<Plan>,
         optional: Box<Plan>,
     },
+    /// Unnest `expr` (expected to evaluate to a list) into one output
+    /// row per element, binding each element to `var`. Rows from
+    /// `input` are cross-applied: each input row produces N output
+    /// rows where N is the length of the list.
+    Unwind {
+        input: Box<Plan>,
+        expr: Expr,
+        var: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -179,6 +188,13 @@ pub fn plan(query: &Query) -> Result<Plan, PlanError> {
                         })
                         .collect(),
                 );
+            }
+            Clause::Unwind { expr, var } => {
+                plan = Plan::Unwind {
+                    input: Box::new(plan),
+                    expr: expr.clone(),
+                    var: var.clone(),
+                };
             }
             Clause::Skip(e) => skip = Some(e.clone()),
             Clause::Limit(e) => limit = Some(e.clone()),
@@ -430,6 +446,10 @@ fn write_plan(plan: &Plan, f: &mut fmt::Formatter<'_>, depth: usize, root: bool)
             writeln!(f, "Optional")?;
             write_plan(input, f, depth + 1, false)?;
             write_plan(optional, f, depth + 1, false)?;
+        }
+        Plan::Unwind { input, expr, var } => {
+            writeln!(f, "Unwind {{ expr: {expr:?}, var: {var} }}")?;
+            write_plan(input, f, depth + 1, false)?;
         }
     }
     Ok(())
