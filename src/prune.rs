@@ -81,6 +81,10 @@ fn walk_output(plan: &Plan, out: &mut HashSet<String>) {
             walk_output(input, out);
             walk_output(optional, out);
         }
+        Plan::Unwind { input, var, .. } => {
+            walk_output(input, out);
+            out.insert(var.clone());
+        }
     }
 }
 
@@ -161,6 +165,15 @@ pub fn required_input_columns(plan: &Plan, outer_demand: &HashSet<String>) -> Ha
             // root: callers typically recurse into `left` / `right` /
             // `optional` directly with split demand.
             outer_demand.clone()
+        }
+        Plan::Unwind { expr, var, .. } => {
+            // Unwind introduces `var` into the output. The input must
+            // supply demand minus `var` (which Unwind produces), plus
+            // every variable referenced by the list expression itself.
+            let mut acc: HashSet<String> =
+                outer_demand.iter().filter(|v| *v != var).cloned().collect();
+            acc.extend(used_vars_expr(expr));
+            acc
         }
     }
 }
