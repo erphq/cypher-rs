@@ -53,7 +53,7 @@ pub struct SemIssue {
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct AnalysisReport {
-    /// Variable names introduced by MATCH/OPTIONAL MATCH patterns.
+    /// Variable names in scope after all clauses have been processed.
     pub bindings: HashSet<String>,
     pub issues: Vec<SemIssue>,
 }
@@ -78,42 +78,49 @@ pub fn analyze(query: &Query) -> AnalysisReport {
 }
 
 /// Analyze a parsed query against `schema`.
+///
+/// Uses a single ordered pass: each clause is checked against the scope
+/// built by all preceding clauses, then the clause extends the scope with
+/// the variables it introduces. This ensures that UNWIND, WITH, and MATCH
+/// aliases are only visible to clauses that appear after them.
 pub fn analyze_with<S: Schema + ?Sized>(query: &Query, schema: &S) -> AnalysisReport {
     let mut report = AnalysisReport::default();
-
-    collect_bindings(query, &mut report.bindings);
+    let mut scope: HashSet<String> = HashSet::new();
 
     for clause in &query.clauses {
-        check_clause(clause, &report.bindings, schema, &mut report.issues);
+        check_clause(clause, &scope, schema, &mut report.issues);
+        extend_scope(clause, &mut scope);
     }
 
+    report.bindings = scope;
     report
 }
 
-fn collect_bindings(query: &Query, out: &mut HashSet<String>) {
-    for clause in &query.clauses {
-        match clause {
-            Clause::Match(m) => {
-                for p in &m.patterns {
-                    add_node_binding(&p.anchor, out);
-                    for chain in &p.chain {
-                        add_rel_binding(&chain.rel, out);
-                        add_node_binding(&chain.node, out);
-                    }
+/// Add the variable bindings produced by `clause` to `scope`.
+/// Called after the clause has been checked so its own aliases are not
+/// visible while evaluating its expressions.
+fn extend_scope(clause: &Clause, scope: &mut HashSet<String>) {
+    match clause {
+        Clause::Match(m) => {
+            for p in &m.patterns {
+                add_node_binding(&p.anchor, scope);
+                for chain in &p.chain {
+                    add_rel_binding(&chain.rel, scope);
+                    add_node_binding(&chain.node, scope);
                 }
             }
-            Clause::With(w) => {
-                for item in &w.items {
-                    if let Some(alias) = &item.alias {
-                        out.insert(alias.clone());
-                    }
-                }
-            }
-            Clause::Unwind { var, .. } => {
-                out.insert(var.clone());
-            }
-            _ => {}
         }
+        Clause::With(w) => {
+            for item in &w.items {
+                if let Some(alias) = &item.alias {
+                    scope.insert(alias.clone());
+                }
+            }
+        }
+        Clause::Unwind { var, .. } => {
+            scope.insert(var.clone());
+        }
+        _ => {}
     }
 }
 
