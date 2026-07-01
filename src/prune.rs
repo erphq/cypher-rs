@@ -81,6 +81,7 @@ fn walk_output(plan: &Plan, out: &mut HashSet<String>) {
             walk_output(input, out);
             walk_output(optional, out);
         }
+        Plan::Distinct { input } => walk_output(input, out),
     }
 }
 
@@ -160,6 +161,10 @@ pub fn required_input_columns(plan: &Plan, outer_demand: &HashSet<String>) -> Ha
             // For input-of-self purposes, the immediate input is the
             // root: callers typically recurse into `left` / `right` /
             // `optional` directly with split demand.
+            outer_demand.clone()
+        }
+        Plan::Distinct { .. } => {
+            // Distinct is transparent: it passes every column through unchanged.
             outer_demand.clone()
         }
     }

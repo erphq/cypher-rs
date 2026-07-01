@@ -69,6 +69,9 @@ pub enum Plan {
         input: Box<Plan>,
         optional: Box<Plan>,
     },
+    /// Remove duplicate rows from `input`. Corresponds to `RETURN DISTINCT`
+    /// or `WITH DISTINCT` in openCypher.
+    Distinct { input: Box<Plan> },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -112,6 +115,7 @@ pub fn plan(query: &Query) -> Result<Plan, PlanError> {
 
     let mut plan = Plan::Empty;
     let mut project: Option<Vec<ProjectExpr>> = None;
+    let mut return_distinct = false;
     let mut sort: Option<Vec<SortKey>> = None;
     let mut skip: Option<Expr> = None;
     let mut limit: Option<Expr> = None;
@@ -157,8 +161,14 @@ pub fn plan(query: &Query) -> Result<Plan, PlanError> {
                     input: Box::new(plan),
                     exprs,
                 };
+                if r.distinct {
+                    plan = Plan::Distinct {
+                        input: Box::new(plan),
+                    };
+                }
             }
             Clause::Return(r) => {
+                return_distinct = r.distinct;
                 project = Some(
                     r.items
                         .iter()
@@ -185,12 +195,17 @@ pub fn plan(query: &Query) -> Result<Plan, PlanError> {
         }
     }
 
-    // Stack post-RETURN clauses on top: project → sort → skip → limit.
+    // Stack post-RETURN clauses on top: project → distinct? → sort → skip → limit.
     if let Some(exprs) = project {
         plan = Plan::Project {
             input: Box::new(plan),
             exprs,
         };
+        if return_distinct {
+            plan = Plan::Distinct {
+                input: Box::new(plan),
+            };
+        }
     }
     if let Some(keys) = sort {
         plan = Plan::Sort {
@@ -430,6 +445,10 @@ fn write_plan(plan: &Plan, f: &mut fmt::Formatter<'_>, depth: usize, root: bool)
             writeln!(f, "Optional")?;
             write_plan(input, f, depth + 1, false)?;
             write_plan(optional, f, depth + 1, false)?;
+        }
+        Plan::Distinct { input } => {
+            writeln!(f, "Distinct")?;
+            write_plan(input, f, depth + 1, false)?;
         }
     }
     Ok(())
