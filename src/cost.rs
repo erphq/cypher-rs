@@ -225,6 +225,15 @@ pub fn estimate<M: CostModel + ?Sized>(plan: &Plan, model: &M) -> Estimate {
                 cost: i.cost + o.cost + i.cardinality,
             }
         }
+        Plan::Distinct { input } => {
+            let i = estimate(input, model);
+            // Conservatively assume at most half the rows survive dedup.
+            // Without statistics, any estimate is speculative.
+            Estimate {
+                cardinality: (i.cardinality / 2.0).max(1.0),
+                cost: i.cost + i.cardinality,
+            }
+        }
     }
 }
 

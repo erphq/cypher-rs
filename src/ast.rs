@@ -71,6 +71,7 @@ pub enum Direction {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ReturnClause {
+    pub distinct: bool,
     pub items: Vec<ReturnItem>,
 }
 

@@ -88,14 +88,19 @@ fn walk_order_item(pair: Pair<Rule>) -> Result<OrderItem, ParseError> {
 
 fn walk_return(pair: Pair<Rule>) -> Result<ReturnClause, ParseError> {
     let mut items = Vec::new();
+    let mut distinct = false;
     for inner in pair.into_inner() {
         if inner.as_rule() == Rule::return_items {
             for ri in inner.into_inner() {
-                items.push(walk_return_item(ri)?);
+                if ri.as_rule() == Rule::kw_distinct {
+                    distinct = true;
+                } else {
+                    items.push(walk_return_item(ri)?);
+                }
             }
         }
     }
-    Ok(ReturnClause { items })
+    Ok(ReturnClause { distinct, items })
 }
 
 fn walk_return_item(pair: Pair<Rule>) -> Result<ReturnItem, ParseError> {
@@ -510,6 +515,7 @@ fn is_kw(p: &Pair<Rule>) -> bool {
             | Rule::kw_starts
             | Rule::kw_ends
             | Rule::kw_contains
+            | Rule::kw_distinct
     )
 }
 

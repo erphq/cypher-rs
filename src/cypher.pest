@@ -1,7 +1,8 @@
 // Minimal openCypher subset for cypher-rs (v0.1: MATCH/WHERE/RETURN/LIMIT/SKIP;
 // v0.2: OPTIONAL MATCH, ORDER BY, list literals, IN;
 // v0.11: WITH clause;
-// v0.12: STARTS WITH, ENDS WITH, CONTAINS string predicates).
+// v0.12: STARTS WITH, ENDS WITH, CONTAINS string predicates;
+// v0.14: RETURN DISTINCT / WITH DISTINCT).
 //
 // Whitespace is skipped between non-atomic rules. Atomic rules
 // (those marked `@`) preserve internal whitespace.
@@ -35,9 +36,10 @@ kw_false    = @{ ^"FALSE"    ~ !(ASCII_ALPHANUMERIC | "_") }
 kw_null     = @{ ^"NULL"     ~ !(ASCII_ALPHANUMERIC | "_") }
 kw_is       = @{ ^"IS"       ~ !(ASCII_ALPHANUMERIC | "_") }
 kw_with     = @{ ^"WITH"     ~ !(ASCII_ALPHANUMERIC | "_") }
-kw_starts   = @{ ^"STARTS"   ~ !(ASCII_ALPHANUMERIC | "_") }
-kw_ends     = @{ ^"ENDS"     ~ !(ASCII_ALPHANUMERIC | "_") }
-kw_contains = @{ ^"CONTAINS" ~ !(ASCII_ALPHANUMERIC | "_") }
+kw_starts    = @{ ^"STARTS"   ~ !(ASCII_ALPHANUMERIC | "_") }
+kw_ends      = @{ ^"ENDS"     ~ !(ASCII_ALPHANUMERIC | "_") }
+kw_contains  = @{ ^"CONTAINS" ~ !(ASCII_ALPHANUMERIC | "_") }
+kw_distinct  = @{ ^"DISTINCT" ~ !(ASCII_ALPHANUMERIC | "_") }
 
 reserved_kw = _{
     kw_match | kw_optional | kw_where | kw_return | kw_as
@@ -45,7 +47,7 @@ reserved_kw = _{
     | kw_limit | kw_skip | kw_with
     | kw_and | kw_or | kw_not | kw_in
     | kw_true | kw_false | kw_null | kw_is
-    | kw_starts | kw_ends | kw_contains
+    | kw_starts | kw_ends | kw_contains | kw_distinct
 }
 
 ident = @{
@@ -90,7 +92,7 @@ rel_types      = { ":" ~ ident ~ ("|" ~ ident)* }
 
 // --- return -----------------------------------------------------------
 
-return_items = { return_item ~ ("," ~ return_item)* }
+return_items = { kw_distinct? ~ return_item ~ ("," ~ return_item)* }
 return_item  = { expr ~ alias? }
 alias        = { kw_as ~ ident }
 
