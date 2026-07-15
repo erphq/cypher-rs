@@ -154,6 +154,11 @@ fn check_clause<S: Schema + ?Sized>(
             }
         }
         Clause::Limit(e) | Clause::Skip(e) => check_expr(e, bindings, issues),
+        Clause::Delete { exprs, .. } => {
+            for e in exprs {
+                check_expr(e, bindings, issues);
+            }
+        }
     }
 }
 
