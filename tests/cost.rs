@@ -128,6 +128,104 @@ fn custom_cost_model_via_trait() {
     }
     let p = pq("MATCH (u:User)-[:KNOWS]->(v) WHERE u.x = 1 RETURN v");
     let cost = estimate_cost(&p, &AlwaysOne);
-    // Tiny graph → cost should be a small handful of rows.
+    // Tiny graph -> cost should be a small handful of rows.
     assert!(cost < 50.0, "expected tiny cost, got {cost}");
+}
+
+// ---- Optional -----------------------------------------------------------
+
+#[test]
+fn optional_cardinality_is_max_of_input_and_optional_branch() {
+    let p = pq("MATCH (u:User) OPTIONAL MATCH (u)-[:FOLLOWS]->(f) RETURN u, f");
+    let m = CardinalityCostModel::default()
+        .with_label("User", 200.0)
+        .with_rel("FOLLOWS", 0.5);
+    let est = estimate(&p, &m);
+    // input card = 200; optional branch: unlabeled Scan (default 10k) *
+    // FOLLOWS fanout (0.5) = 5000. max(200, 5000) = 5000.
+    assert!(
+        est.cardinality >= 200.0,
+        "Optional cardinality must be at least the input cardinality, got {est:?}"
+    );
+}
+
+#[test]
+fn optional_cardinality_dominated_by_large_optional_branch() {
+    let p = pq("MATCH (u:User) OPTIONAL MATCH (u)-[:KNOWS]->(f) RETURN u, f");
+    let m = CardinalityCostModel::default()
+        .with_label("User", 10.0)
+        .with_rel("KNOWS", 1_000.0);
+    let est = estimate(&p, &m);
+    // input card = 10; optional Expand on unlabeled Scan (10k default) *
+    // 1000 fanout = 10M. max(10, 10M) = 10M.
+    assert!(
+        est.cardinality > 1_000.0,
+        "Optional must surface the large optional-branch cardinality, got {est:?}"
+    );
+}
+
+#[test]
+fn optional_cost_includes_input_probe_work() {
+    let p = pq("MATCH (u:User) OPTIONAL MATCH (u)-[:FOLLOWS]->(f) RETURN u, f");
+    let m = CardinalityCostModel::default().with_label("User", 500.0);
+    let est = estimate(&p, &m);
+    // The probe of all input rows must appear in the cost: cost includes
+    // i.cardinality (500) on top of the plan sub-tree costs.
+    assert!(
+        est.cost >= 500.0,
+        "Optional cost must account for probing all input rows, got {est:?}"
+    );
+}
+
+#[test]
+fn optional_plan_more_expensive_than_plain_match() {
+    let plain = pq("MATCH (u:User) RETURN u");
+    let optional = pq("MATCH (u:User) OPTIONAL MATCH (u)-[:FOLLOWS]->(f) RETURN u, f");
+    let m = CardinalityCostModel::default().with_label("User", 200.0);
+    let plain_cost = estimate_cost(&plain, &m);
+    let opt_cost = estimate_cost(&optional, &m);
+    assert!(
+        opt_cost > plain_cost,
+        "Optional plan must cost more than plain MATCH, got plain={plain_cost} opt={opt_cost}"
+    );
+}
+
+// ---- Distinct -----------------------------------------------------------
+
+#[test]
+fn distinct_halves_cardinality() {
+    let p = pq("MATCH (u:User) RETURN DISTINCT u");
+    let m = CardinalityCostModel::default().with_label("User", 1_000.0);
+    let est = estimate(&p, &m);
+    // Default dedup heuristic: cardinality / 2. With 1000 rows -> ~500.
+    assert!(
+        est.cardinality >= 400.0 && est.cardinality <= 600.0,
+        "expected ~500 rows after DISTINCT on 1000-row scan, got {est:?}"
+    );
+}
+
+#[test]
+fn distinct_cardinality_never_below_one() {
+    let p = pq("MATCH (u:Tiny) RETURN DISTINCT u");
+    let m = CardinalityCostModel::default().with_label("Tiny", 1.0);
+    let est = estimate(&p, &m);
+    // (1 / 2).max(1) = 1: Distinct must never yield zero rows.
+    assert!(
+        est.cardinality >= 1.0,
+        "Distinct cardinality floor is 1, got {est:?}"
+    );
+}
+
+#[test]
+fn distinct_more_expensive_than_plain_return() {
+    let plain = pq("MATCH (u:User) RETURN u");
+    let with_distinct = pq("MATCH (u:User) RETURN DISTINCT u");
+    let m = CardinalityCostModel::default().with_label("User", 1_000.0);
+    let c1 = estimate_cost(&plain, &m);
+    let c2 = estimate_cost(&with_distinct, &m);
+    // Distinct adds a full dedup pass over its input (1000 units).
+    assert!(
+        c2 > c1,
+        "RETURN DISTINCT must cost more than plain RETURN, got plain={c1} distinct={c2}"
+    );
 }
