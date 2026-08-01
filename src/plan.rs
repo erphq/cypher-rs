@@ -200,6 +200,27 @@ pub fn plan(query: &Query) -> Result<Plan, PlanError> {
             Clause::Skip(e) => skip = Some(e.clone()),
             Clause::Limit(e) => limit = Some(e.clone()),
             Clause::Delete { detach, exprs } => {
+                // Flush pending row modifiers so they become Delete's input,
+                // not its output. WITH n ORDER BY x LIMIT 1 DELETE n must
+                // produce Delete(Limit(...)) not Limit(Delete(...)).
+                if let Some(keys) = sort.take() {
+                    plan = Plan::Sort {
+                        input: Box::new(plan),
+                        keys,
+                    };
+                }
+                if let Some(count) = skip.take() {
+                    plan = Plan::Skip {
+                        input: Box::new(plan),
+                        count,
+                    };
+                }
+                if let Some(count) = limit.take() {
+                    plan = Plan::Limit {
+                        input: Box::new(plan),
+                        count,
+                    };
+                }
                 plan = Plan::Delete {
                     input: Box::new(plan),
                     detach: *detach,

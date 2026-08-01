@@ -157,6 +157,13 @@ fn check_clause<S: Schema + ?Sized>(
         Clause::Delete { exprs, .. } => {
             for e in exprs {
                 check_expr(e, bindings, issues);
+                if !matches!(e, Expr::Variable(_)) {
+                    issues.push(SemIssue {
+                        severity: SemSeverity::Error,
+                        code: "non-variable-delete-target",
+                        message: "DELETE targets must be bound variables".to_string(),
+                    });
+                }
             }
         }
     }

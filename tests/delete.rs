@@ -94,3 +94,58 @@ fn filter_pushes_into_delete_input() {
     assert!(rendered.contains("Delete"), "plan: {rendered}");
     assert!(rendered.contains("Filter"), "plan: {rendered}");
 }
+
+#[test]
+fn limit_inside_delete_not_outside() {
+    // MATCH (n) WITH n LIMIT 1 DELETE n must produce Delete(Limit(...)).
+    // Before the fix this produced Limit(Delete(...)).
+    let q = parse("MATCH (n) WITH n LIMIT 1 DELETE n").unwrap();
+    let p = plan(&q).unwrap();
+    let rendered = p.to_string();
+    assert!(
+        rendered.starts_with("Delete"),
+        "expected Delete at plan root, got:\n{rendered}"
+    );
+    assert!(
+        rendered.contains("Limit"),
+        "expected Limit inside plan, got:\n{rendered}"
+    );
+}
+
+#[test]
+fn non_variable_delete_target_is_an_error() {
+    // DELETE 1 should be rejected: DELETE only accepts bound variables.
+    let q = parse("MATCH (n) DELETE 1").unwrap();
+    let report = analyze(&q);
+    assert!(
+        report.has_errors(),
+        "expected sema error for non-variable delete target"
+    );
+    assert!(
+        report
+            .issues
+            .iter()
+            .any(|i| i.code == "non-variable-delete-target"),
+        "expected non-variable-delete-target code, got: {:?}",
+        report.issues
+    );
+}
+
+#[test]
+fn property_access_delete_target_is_an_error() {
+    // DELETE n.name should be rejected.
+    let q = parse("MATCH (n) DELETE n.name").unwrap();
+    let report = analyze(&q);
+    assert!(
+        report.has_errors(),
+        "expected sema error for property-access delete target"
+    );
+    assert!(
+        report
+            .issues
+            .iter()
+            .any(|i| i.code == "non-variable-delete-target"),
+        "expected non-variable-delete-target code, got: {:?}",
+        report.issues
+    );
+}
