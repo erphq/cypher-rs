@@ -122,6 +122,7 @@ pub enum BinOp {
     Gte,
     And,
     Or,
+    Xor,
     Add,
     Sub,
     Mul,

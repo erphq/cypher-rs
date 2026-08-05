@@ -246,6 +246,7 @@ fn walk_expr(pair: Pair<Rule>) -> Result<Expr, ParseError> {
     match pair.as_rule() {
         Rule::expr => walk_expr(first_inner(pair, "expr")?),
         Rule::or_expr => walk_left_assoc_no_op(pair, BinOp::Or),
+        Rule::xor_expr => walk_left_assoc_no_op(pair, BinOp::Xor),
         Rule::and_expr => walk_left_assoc_no_op(pair, BinOp::And),
         Rule::not_op => {
             let inner = first_operand(pair, "not")?;
@@ -320,7 +321,7 @@ fn walk_expr(pair: Pair<Rule>) -> Result<Expr, ParseError> {
     }
 }
 
-/// `or_expr` and `and_expr` interleave operand - kw_or/kw_and - operand - ...
+/// `or_expr`, `xor_expr`, and `and_expr` interleave operand - keyword - operand - ...
 /// We walk operands and skip the keyword tokens.
 fn walk_left_assoc_no_op(pair: Pair<Rule>, op: BinOp) -> Result<Expr, ParseError> {
     let mut acc: Option<Expr> = None;
@@ -506,6 +507,7 @@ fn is_kw(p: &Pair<Rule>) -> bool {
             | Rule::kw_with
             | Rule::kw_and
             | Rule::kw_or
+            | Rule::kw_xor
             | Rule::kw_not
             | Rule::kw_in
             | Rule::kw_true

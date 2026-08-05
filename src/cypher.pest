@@ -2,7 +2,8 @@
 // v0.2: OPTIONAL MATCH, ORDER BY, list literals, IN;
 // v0.11: WITH clause;
 // v0.12: STARTS WITH, ENDS WITH, CONTAINS string predicates;
-// v0.14: RETURN DISTINCT / WITH DISTINCT).
+// v0.14: RETURN DISTINCT / WITH DISTINCT;
+// v0.16: XOR boolean operator).
 //
 // Whitespace is skipped between non-atomic rules. Atomic rules
 // (those marked `@`) preserve internal whitespace.
@@ -29,6 +30,7 @@ kw_limit    = @{ ^"LIMIT"    ~ !(ASCII_ALPHANUMERIC | "_") }
 kw_skip     = @{ ^"SKIP"     ~ !(ASCII_ALPHANUMERIC | "_") }
 kw_and      = @{ ^"AND"      ~ !(ASCII_ALPHANUMERIC | "_") }
 kw_or       = @{ ^"OR"       ~ !(ASCII_ALPHANUMERIC | "_") }
+kw_xor      = @{ ^"XOR"      ~ !(ASCII_ALPHANUMERIC | "_") }
 kw_not      = @{ ^"NOT"      ~ !(ASCII_ALPHANUMERIC | "_") }
 kw_in       = @{ ^"IN"       ~ !(ASCII_ALPHANUMERIC | "_") }
 kw_true     = @{ ^"TRUE"     ~ !(ASCII_ALPHANUMERIC | "_") }
@@ -45,7 +47,7 @@ reserved_kw = _{
     kw_match | kw_optional | kw_where | kw_return | kw_as
     | kw_order | kw_by | kw_asc | kw_desc
     | kw_limit | kw_skip | kw_with
-    | kw_and | kw_or | kw_not | kw_in
+    | kw_and | kw_or | kw_xor | kw_not | kw_in
     | kw_true | kw_false | kw_null | kw_is
     | kw_starts | kw_ends | kw_contains | kw_distinct
 }
@@ -99,7 +101,8 @@ alias        = { kw_as ~ ident }
 // --- expressions ------------------------------------------------------
 
 expr     = { or_expr }
-or_expr  = { and_expr ~ (kw_or ~ and_expr)* }
+or_expr  = { xor_expr ~ (kw_or ~ xor_expr)* }
+xor_expr = { and_expr ~ (kw_xor ~ and_expr)* }
 and_expr = { not_expr ~ (kw_and ~ not_expr)* }
 not_expr = _{ not_op | cmp_expr }
 not_op   = { kw_not ~ not_expr }
