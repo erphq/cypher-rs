@@ -193,6 +193,12 @@ fn try_push_filter(input: Plan, pred: Expr) -> Plan {
                 }
             }
         }
+        // Push through Distinct: filter(distinct(X), pred) = distinct(filter(X, pred)).
+        // Predicates are pure, so filtering before dedup produces the same rows with
+        // lower cardinality entering the Distinct operator.
+        Plan::Distinct { input } => Plan::Distinct {
+            input: Box::new(try_push_filter(*input, pred)),
+        },
         // Don't push through Limit / Skip / Optional / leaves.
         other => Plan::Filter {
             input: Box::new(other),
