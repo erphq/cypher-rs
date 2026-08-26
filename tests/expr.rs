@@ -1,6 +1,6 @@
 //! Tests for expression operators not covered elsewhere.
-//! Covers: OR, Neq/Lte/Gte/Lt comparisons, Div/Mod/Sub arithmetic,
-//! unary negation, NOT over a binary, and double-quoted string literals.
+//! Covers: OR, Neq/Lte/Gte/Lt comparisons, Add/Mul/Div/Mod/Sub arithmetic,
+//! unary negation, NOT over a binary, double-quoted string literals, and null literal.
 
 use cypher_rs::*;
 
@@ -219,6 +219,114 @@ fn parses_all_comparison_ops_round_trip() {
                 assert_eq!(*op, expected, "wrong op for {op_str}");
             }
             other => panic!("expected Binary for {op_str}, got {other:?}"),
+        }
+    }
+}
+
+#[test]
+fn parses_addition() {
+    let q = parse("RETURN 2 + 3").unwrap();
+    match &q.clauses[0] {
+        Clause::Return(r) => match &r.items[0].expr {
+            Expr::Binary {
+                op: BinOp::Add,
+                lhs,
+                rhs,
+            } => {
+                assert!(matches!(lhs.as_ref(), Expr::Literal(Literal::Int(2))));
+                assert!(matches!(rhs.as_ref(), Expr::Literal(Literal::Int(3))));
+            }
+            other => panic!("expected Add, got {other:?}"),
+        },
+        _ => panic!("expected RETURN"),
+    }
+}
+
+#[test]
+fn parses_multiplication() {
+    let q = parse("RETURN 4 * 5").unwrap();
+    match &q.clauses[0] {
+        Clause::Return(r) => match &r.items[0].expr {
+            Expr::Binary {
+                op: BinOp::Mul,
+                lhs,
+                rhs,
+            } => {
+                assert!(matches!(lhs.as_ref(), Expr::Literal(Literal::Int(4))));
+                assert!(matches!(rhs.as_ref(), Expr::Literal(Literal::Int(5))));
+            }
+            other => panic!("expected Mul, got {other:?}"),
+        },
+        _ => panic!("expected RETURN"),
+    }
+}
+
+#[test]
+fn mul_binds_tighter_than_add() {
+    // 2 + 3 * 4 must parse as 2 + (3 * 4), not (2 + 3) * 4.
+    let q = parse("RETURN 2 + 3 * 4").unwrap();
+    match &q.clauses[0] {
+        Clause::Return(r) => match &r.items[0].expr {
+            Expr::Binary {
+                op: BinOp::Add,
+                rhs,
+                ..
+            } => {
+                assert!(
+                    matches!(rhs.as_ref(), Expr::Binary { op: BinOp::Mul, .. }),
+                    "expected rhs of Add to be Mul, got {rhs:?}"
+                );
+            }
+            other => panic!("expected Add at top level, got {other:?}"),
+        },
+        _ => panic!("expected RETURN"),
+    }
+}
+
+#[test]
+fn add_is_left_associative() {
+    // 1 + 2 + 3 must parse as (1 + 2) + 3.
+    let q = parse("RETURN 1 + 2 + 3").unwrap();
+    match &q.clauses[0] {
+        Clause::Return(r) => match &r.items[0].expr {
+            Expr::Binary {
+                op: BinOp::Add,
+                lhs,
+                ..
+            } => {
+                assert!(
+                    matches!(lhs.as_ref(), Expr::Binary { op: BinOp::Add, .. }),
+                    "expected lhs of outer Add to be inner Add (left-associative), got {lhs:?}"
+                );
+            }
+            other => panic!("expected outer Add, got {other:?}"),
+        },
+        _ => panic!("expected RETURN"),
+    }
+}
+
+#[test]
+fn parses_null_literal() {
+    let q = parse("RETURN null").unwrap();
+    match &q.clauses[0] {
+        Clause::Return(r) => match &r.items[0].expr {
+            Expr::Literal(Literal::Null) => {}
+            other => panic!("expected Null literal, got {other:?}"),
+        },
+        _ => panic!("expected RETURN"),
+    }
+}
+
+#[test]
+fn null_is_case_insensitive() {
+    for src in ["RETURN NULL", "RETURN Null", "RETURN null"] {
+        let q = parse(src).unwrap();
+        match &q.clauses[0] {
+            Clause::Return(r) => assert!(
+                matches!(r.items[0].expr, Expr::Literal(Literal::Null)),
+                "expected Null for: {src}"
+            ),
+            _ => panic!("expected RETURN for: {src}"),
         }
     }
 }
