@@ -234,6 +234,14 @@ pub fn estimate<M: CostModel + ?Sized>(plan: &Plan, model: &M) -> Estimate {
                 cost: i.cost + i.cardinality,
             }
         }
+        Plan::Delete { input, .. } => {
+            let i = estimate(input, model);
+            // Each input row incurs a deletion; the row set passes through.
+            Estimate {
+                cardinality: i.cardinality,
+                cost: i.cost + i.cardinality,
+            }
+        }
     }
 }
 

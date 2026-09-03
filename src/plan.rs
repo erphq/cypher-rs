@@ -72,6 +72,13 @@ pub enum Plan {
     /// Remove duplicate rows from `input`. Corresponds to `RETURN DISTINCT`
     /// or `WITH DISTINCT` in openCypher.
     Distinct { input: Box<Plan> },
+    /// Mark graph elements in `exprs` for removal. When `detach` is true,
+    /// relationships connected to deleted nodes are removed first.
+    Delete {
+        input: Box<Plan>,
+        detach: bool,
+        exprs: Vec<Expr>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -192,6 +199,34 @@ pub fn plan(query: &Query) -> Result<Plan, PlanError> {
             }
             Clause::Skip(e) => skip = Some(e.clone()),
             Clause::Limit(e) => limit = Some(e.clone()),
+            Clause::Delete { detach, exprs } => {
+                // Flush pending row modifiers so they become Delete's input,
+                // not its output. WITH n ORDER BY x LIMIT 1 DELETE n must
+                // produce Delete(Limit(...)) not Limit(Delete(...)).
+                if let Some(keys) = sort.take() {
+                    plan = Plan::Sort {
+                        input: Box::new(plan),
+                        keys,
+                    };
+                }
+                if let Some(count) = skip.take() {
+                    plan = Plan::Skip {
+                        input: Box::new(plan),
+                        count,
+                    };
+                }
+                if let Some(count) = limit.take() {
+                    plan = Plan::Limit {
+                        input: Box::new(plan),
+                        count,
+                    };
+                }
+                plan = Plan::Delete {
+                    input: Box::new(plan),
+                    detach: *detach,
+                    exprs: exprs.clone(),
+                };
+            }
         }
     }
 
@@ -448,6 +483,19 @@ fn write_plan(plan: &Plan, f: &mut fmt::Formatter<'_>, depth: usize, root: bool)
         }
         Plan::Distinct { input } => {
             writeln!(f, "Distinct")?;
+            write_plan(input, f, depth + 1, false)?;
+        }
+        Plan::Delete {
+            input,
+            detach,
+            exprs,
+        } => {
+            let parts: Vec<String> = exprs.iter().map(|e| format!("{e:?}")).collect();
+            writeln!(
+                f,
+                "Delete {{ detach: {detach}, exprs: [{}] }}",
+                parts.join(", ")
+            )?;
             write_plan(input, f, depth + 1, false)?;
         }
     }

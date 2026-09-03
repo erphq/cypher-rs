@@ -29,6 +29,10 @@ pub fn parse(input: &str) -> Result<Query, ParseError> {
             Rule::order_by_clause => clauses.push(Clause::OrderBy(walk_order_by(inner)?)),
             Rule::limit_clause => clauses.push(Clause::Limit(walk_clause_expr(inner)?)),
             Rule::skip_clause => clauses.push(Clause::Skip(walk_clause_expr(inner)?)),
+            Rule::delete_clause => {
+                let (detach, exprs) = walk_delete(inner)?;
+                clauses.push(Clause::Delete { detach, exprs });
+            }
             r => return Err(unexpected("clause", r)),
         }
     }
@@ -84,6 +88,23 @@ fn walk_order_item(pair: Pair<Rule>) -> Result<OrderItem, ParseError> {
         }
     }
     Ok(OrderItem { expr, desc })
+}
+
+fn walk_delete(pair: Pair<Rule>) -> Result<(bool, Vec<Expr>), ParseError> {
+    let mut detach = false;
+    let mut exprs = Vec::new();
+    for inner in pair.into_inner() {
+        match inner.as_rule() {
+            Rule::kw_detach => detach = true,
+            Rule::delete_items => {
+                for e in inner.into_inner() {
+                    exprs.push(walk_expr(e)?);
+                }
+            }
+            _ => {}
+        }
+    }
+    Ok((detach, exprs))
 }
 
 fn walk_return(pair: Pair<Rule>) -> Result<ReturnClause, ParseError> {
@@ -518,6 +539,8 @@ fn is_kw(p: &Pair<Rule>) -> bool {
             | Rule::kw_ends
             | Rule::kw_contains
             | Rule::kw_distinct
+            | Rule::kw_delete
+            | Rule::kw_detach
     )
 }
 

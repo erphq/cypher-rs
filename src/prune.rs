@@ -82,6 +82,7 @@ fn walk_output(plan: &Plan, out: &mut HashSet<String>) {
             walk_output(optional, out);
         }
         Plan::Distinct { input } => walk_output(input, out),
+        Plan::Delete { input, .. } => walk_output(input, out),
     }
 }
 
@@ -166,6 +167,15 @@ pub fn required_input_columns(plan: &Plan, outer_demand: &HashSet<String>) -> Ha
         Plan::Distinct { .. } => {
             // Distinct is transparent: it passes every column through unchanged.
             outer_demand.clone()
+        }
+        Plan::Delete { exprs, .. } => {
+            // The input must supply every variable named in the delete
+            // expressions, plus whatever the rest of the query demands.
+            let mut acc = outer_demand.clone();
+            for e in exprs {
+                acc.extend(used_vars_expr(e));
+            }
+            acc
         }
     }
 }
