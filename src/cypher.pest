@@ -2,6 +2,7 @@
 // v0.2: OPTIONAL MATCH, ORDER BY, list literals, IN;
 // v0.11: WITH clause;
 // v0.12: STARTS WITH, ENDS WITH, CONTAINS string predicates;
+// v0.13: UNWIND clause;
 // v0.14: RETURN DISTINCT / WITH DISTINCT;
 // v0.16: XOR boolean operator).
 //
@@ -42,11 +43,12 @@ kw_starts    = @{ ^"STARTS"   ~ !(ASCII_ALPHANUMERIC | "_") }
 kw_ends      = @{ ^"ENDS"     ~ !(ASCII_ALPHANUMERIC | "_") }
 kw_contains  = @{ ^"CONTAINS" ~ !(ASCII_ALPHANUMERIC | "_") }
 kw_distinct  = @{ ^"DISTINCT" ~ !(ASCII_ALPHANUMERIC | "_") }
+kw_unwind    = @{ ^"UNWIND"   ~ !(ASCII_ALPHANUMERIC | "_") }
 
 reserved_kw = _{
     kw_match | kw_optional | kw_where | kw_return | kw_as
     | kw_order | kw_by | kw_asc | kw_desc
-    | kw_limit | kw_skip | kw_with
+    | kw_limit | kw_skip | kw_with | kw_unwind
     | kw_and | kw_or | kw_xor | kw_not | kw_in
     | kw_true | kw_false | kw_null | kw_is
     | kw_starts | kw_ends | kw_contains | kw_distinct
@@ -60,12 +62,13 @@ ident = @{
 
 query = { SOI ~ clause+ ~ EOI }
 
-clause = _{ match_clause | where_clause | with_clause | return_clause | order_by_clause | limit_clause | skip_clause }
+clause = _{ match_clause | where_clause | with_clause | unwind_clause | return_clause | order_by_clause | limit_clause | skip_clause }
 
 match_clause     = { optional_kw? ~ kw_match ~ pattern_list }
 optional_kw      = { kw_optional }
 where_clause     = { kw_where ~ expr }
 with_clause      = { kw_with ~ return_items }
+unwind_clause    = { kw_unwind ~ expr ~ kw_as ~ ident }
 return_clause    = { kw_return ~ return_items }
 order_by_clause  = { kw_order ~ kw_by ~ order_items }
 limit_clause     = { kw_limit ~ expr }
