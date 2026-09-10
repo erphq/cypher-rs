@@ -139,3 +139,45 @@ fn report_distinguishes_errors_from_warnings() {
     let err_count = r.errors().count();
     assert_eq!(err_count, 1);
 }
+
+// ---- UNWIND scope tests --------------------------------------------------
+
+#[test]
+fn unwind_self_shadow_alias_reports_unbound_error() {
+    // The alias x is produced by this UNWIND clause; it must not be visible
+    // while evaluating the list expression [x].
+    let q = parse("UNWIND [x] AS x RETURN x").unwrap();
+    let r = analyze(&q);
+    let codes: Vec<_> = r.errors().map(|i| i.code).collect();
+    assert!(
+        codes.contains(&"unbound-variable"),
+        "UNWIND [x] AS x should report unbound-variable for x in the list, got {codes:?}"
+    );
+}
+
+#[test]
+fn unwind_expr_sees_prior_match_binding() {
+    // x is bound by MATCH before UNWIND; the list expression [x] is valid
+    // even though UNWIND also produces x as its output alias.
+    let q = parse("MATCH (x:Node) UNWIND [x] AS x RETURN x").unwrap();
+    let r = analyze(&q);
+    assert!(
+        !r.has_errors(),
+        "MATCH-bound x should be visible in UNWIND expr, got {:?}",
+        r.issues
+    );
+}
+
+#[test]
+fn chained_unwind_second_sees_first_alias() {
+    // The second UNWIND's expression references t, which is produced by the
+    // first UNWIND. With ordered scoping, t must be in scope for the second
+    // UNWIND's expression check.
+    let q = parse("UNWIND $lists AS t UNWIND t AS item RETURN item").unwrap();
+    let r = analyze(&q);
+    assert!(
+        !r.has_errors(),
+        "second UNWIND should see alias from first UNWIND, got {:?}",
+        r.issues
+    );
+}
