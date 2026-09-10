@@ -16,6 +16,12 @@ pub enum Clause {
     OrderBy(Vec<OrderItem>),
     Limit(Expr),
     Skip(Expr),
+    /// Mark graph elements for removal. `detach: true` removes connected
+    /// relationships first (equivalent to openCypher DETACH DELETE).
+    Delete {
+        detach: bool,
+        exprs: Vec<Expr>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
